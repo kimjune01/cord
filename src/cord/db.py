@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS nodes (
     node_type TEXT NOT NULL CHECK(node_type IN ('goal', 'spawn', 'fork', 'serial', 'ask')),
     goal TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending'
-        CHECK(status IN ('pending', 'active', 'complete', 'failed', 'cancelled')),
+        CHECK(status IN ('pending', 'active', 'paused', 'complete', 'failed', 'cancelled')),
     parent_id INTEGER REFERENCES nodes(id),
     prompt TEXT,
     returns TEXT DEFAULT 'text',
@@ -97,6 +97,25 @@ class CordDB:
         self._conn.execute(
             "UPDATE nodes SET status = ?, updated_at = ? WHERE id = ?",
             (status, time.time(), _row_id(node_id)),
+        )
+        self._conn.commit()
+
+    def modify_node(self, node_id: str, goal: str | None = None, prompt: str | None = None) -> None:
+        updates = []
+        params: list = []
+        if goal is not None:
+            updates.append("goal = ?")
+            params.append(goal)
+        if prompt is not None:
+            updates.append("prompt = ?")
+            params.append(prompt)
+        if not updates:
+            return
+        updates.append("updated_at = ?")
+        params.append(time.time())
+        params.append(_row_id(node_id))
+        self._conn.execute(
+            f"UPDATE nodes SET {', '.join(updates)} WHERE id = ?", params
         )
         self._conn.commit()
 

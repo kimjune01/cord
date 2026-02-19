@@ -15,6 +15,9 @@ MCP_TOOLS = [
     "mcp__cord__ask",
     "mcp__cord__stop",
     "mcp__cord__complete",
+    "mcp__cord__pause",
+    "mcp__cord__resume",
+    "mcp__cord__modify",
 ]
 
 

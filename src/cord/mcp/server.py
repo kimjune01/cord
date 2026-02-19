@@ -138,15 +138,80 @@ def ask(question: str, options: list[str] | None = None,
     return json.dumps({"created": new_id, "question": question})
 
 
+def _is_descendant(db: CordDB, agent_id: str, target_id: str) -> bool:
+    """Check if target_id is a descendant of agent_id."""
+    node = db.get_node(target_id)
+    while node and node["parent_id"]:
+        if node["parent_id"] == agent_id:
+            return True
+        node = db.get_node(node["parent_id"])
+    return False
+
+
 @mcp.tool()
 def stop(node_id: str) -> str:
     """Cancel a node in your subtree."""
     db = _get_db()
+    if err := _check_subtree(db, node_id):
+        return err
+    db.update_status(node_id, "cancelled")
+    return json.dumps({"cancelled": node_id})
+
+
+def _check_subtree(db: CordDB, node_id: str) -> str | None:
+    """Return error JSON if node is missing or not in agent's subtree, else None."""
     node = db.get_node(node_id)
     if not node:
         return json.dumps({"error": f"Node {node_id} not found"})
-    db.update_status(node_id, "cancelled")
-    return json.dumps({"cancelled": node_id})
+    if agent_id and not _is_descendant(db, agent_id, node_id):
+        return json.dumps({
+            "error": f"Node {node_id} is not in your subtree. "
+            "You can only modify your own descendants. "
+            "Use ask() to request the parent to do it."
+        })
+    return None
+
+
+@mcp.tool()
+def pause(node_id: str) -> str:
+    """Pause an active node in your subtree. The runtime will stop its process."""
+    db = _get_db()
+    if err := _check_subtree(db, node_id):
+        return err
+    node = db.get_node(node_id)
+    if node["status"] != "active":
+        return json.dumps({"error": f"Node {node_id} is {node['status']}, not active. Only active nodes can be paused."})
+    db.update_status(node_id, "paused")
+    return json.dumps({"paused": node_id})
+
+
+@mcp.tool()
+def resume(node_id: str) -> str:
+    """Resume a paused node in your subtree. The runtime will relaunch it."""
+    db = _get_db()
+    if err := _check_subtree(db, node_id):
+        return err
+    node = db.get_node(node_id)
+    if node["status"] != "paused":
+        return json.dumps({"error": f"Node {node_id} is {node['status']}, not paused. Only paused nodes can be resumed."})
+    db.update_status(node_id, "pending")
+    return json.dumps({"resumed": node_id})
+
+
+@mcp.tool()
+def modify(node_id: str, goal: str | None = None, prompt: str | None = None) -> str:
+    """Update the goal and/or prompt of a pending or paused node in your subtree."""
+    db = _get_db()
+    if err := _check_subtree(db, node_id):
+        return err
+    node = db.get_node(node_id)
+    if node["status"] not in ("pending", "paused"):
+        return json.dumps({"error": f"Node {node_id} is {node['status']}. Only pending or paused nodes can be modified."})
+    if goal is None and prompt is None:
+        return json.dumps({"error": "Provide at least one of goal or prompt to modify."})
+    db.modify_node(node_id, goal=goal, prompt=prompt)
+    updated = db.get_node(node_id)
+    return json.dumps({"modified": node_id, "goal": updated["goal"]})
 
 
 def main():

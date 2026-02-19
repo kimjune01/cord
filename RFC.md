@@ -3,7 +3,7 @@
     Status:     Draft
     Author:     June Kim
     Created:    2026-02-18
-    Version:    0.2.0
+    Version:    0.3.0
 
 ## Abstract
 
@@ -203,15 +203,23 @@ in the agent's prompt at launch time.
 
     pending --> active --> complete
                   |
+                  ├──> paused --> pending  (via resume)
+                  |
                   ├──> cancelled
                   |
                   └──> failed
 
 - **pending** — not yet started. Dependencies may be unmet.
 - **active** — agent is executing.
+- **paused** — agent halted. Can be modified and resumed.
 - **complete** — agent returned a result via `complete()`.
 - **cancelled** — stopped by signal or user.
 - **failed** — agent process exited with non-zero code.
+
+The `paused` state enables in-place modification of running work.
+An agent can `pause` a child (killing its process), `modify` its
+goal or prompt, then `resume` it (returning it to `pending` for
+relaunch). This replaces the destructive stop-and-respawn pattern.
 
 Every transition is written to the database by the engine.
 
@@ -248,12 +256,18 @@ launches them in parallel.
 
 Agents have scoped authority over their own subtree:
 
-| Action                          | Allowed |
-|---------------------------------|---------|
-| Create children under self      | Yes     |
-| Complete own node               | Yes     |
-| Stop nodes in own subtree       | Yes     |
-| Modify siblings or ancestors    | No      |
+| Action                             | Allowed |
+|------------------------------------|---------|
+| Create children under self         | Yes     |
+| Complete own node                  | Yes     |
+| Stop nodes in own subtree          | Yes     |
+| Pause/resume nodes in own subtree  | Yes     |
+| Modify nodes in own subtree        | Yes     |
+| Stop/pause/modify outside subtree  | No      |
+
+Authority is enforced server-side. Agents that attempt
+unauthorized actions receive an error and are guided to
+escalate via `ask()`.
 
 ### 9.2 Human Authority
 
@@ -267,15 +281,18 @@ scoped to its node ID.
 
 ### 10.1 Tools
 
-| Tool                             | Description                     |
-|----------------------------------|---------------------------------|
-| `read_tree()`                    | Returns full coordination tree  |
-| `read_node(node_id)`            | Returns a single node's detail  |
-| `spawn(goal, prompt, ...)`      | Create a spawned child node     |
-| `fork(goal, prompt, ...)`       | Create a forked child node      |
-| `complete(result)`              | Mark own node complete           |
-| `stop(node_id)`                 | Cancel a node in own subtree     |
-| `ask(question, options, ...)`   | Create an elicitation node       |
+| Tool                             | Description                      |
+|----------------------------------|----------------------------------|
+| `read_tree()`                    | Returns full coordination tree   |
+| `read_node(node_id)`            | Returns a single node's detail   |
+| `spawn(goal, prompt, ...)`      | Create a spawned child node      |
+| `fork(goal, prompt, ...)`       | Create a forked child node       |
+| `complete(result)`              | Mark own node complete            |
+| `stop(node_id)`                 | Cancel a node in own subtree      |
+| `pause(node_id)`                | Pause an active node in subtree   |
+| `resume(node_id)`               | Resume a paused node in subtree   |
+| `modify(node_id, goal, prompt)` | Update a pending/paused node      |
+| `ask(question, options, ...)`   | Create an elicitation node        |
 
 ### 10.2 MCP Connection
 
@@ -359,9 +376,10 @@ engine falls back to using stdout as the result. Exit code 0
 
 ### 11.7 Signal Delivery
 
-| Signal   | Mechanism                                       |
-|----------|-------------------------------------------------|
-| `CANCEL` | SIGTERM to process.                              |
+| Signal   | Mechanism                                        |
+|----------|--------------------------------------------------|
+| `CANCEL` | SIGTERM to process. Node → `cancelled`.           |
+| `PAUSE`  | SIGTERM to process. Node → `paused`.              |
 
 ## 12. Engine
 
@@ -434,8 +452,6 @@ coordination tree with colored status indicators:
 ## 15. Future Work
 
 - **Web UI** — live observation via websocket, replacing TUI.
-- **REDIRECT signal** — change a running agent's goal mid-execution.
-  Requires mid-conversation message injection in Claude Code.
 - **MERGE signal** — notify an agent when a sibling completes.
 - **BUDGET signal** — warn agents of resource limits mid-execution.
 - **Skills** — reusable templates that expand into subtrees.
