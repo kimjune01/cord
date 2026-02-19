@@ -103,6 +103,9 @@ Each agent gets MCP tools to coordinate:
 | `read_node(node_id)` | See a single node's details |
 | `ask(question, options)` | Request input |
 | `stop(node_id)` | Cancel a node |
+| `pause(node_id)` | Pause an active node |
+| `resume(node_id)` | Resume a paused node |
+| `modify(node_id, goal, prompt)` | Update a pending/paused node |
 
 Agents don't know they're in a coordination tree. They see MCP tools and use them as needed. The protocol — dependency tracking, authority scoping, result injection — is enforced by the MCP server.
 
@@ -131,13 +134,19 @@ src/cord/
         server.py           # MCP tools (one server per agent)
 ```
 
-~500 lines of source. SQLite is the only dependency beyond the MCP library.
+~550 lines of source. SQLite is the only dependency beyond the MCP library.
 
 ## Tests
 
 ```bash
-uv run pytest tests/ -v   # 34 tests
+uv run pytest tests/ -v   # 49 tests
 ```
+
+## Experiments
+
+[`experiments/behavior_compare.py`](experiments/behavior_compare.py) runs 8 behavioral tests against both Opus and Sonnet via Claude Code CLI, comparing how each model uses the Cord MCP tools. Key finding: both models produce identical coordination structures (spawn/fork/blocked_by), and when the server rejects an unauthorized action, both escalate via `ask()` instead of finding workarounds.
+
+The `pause`, `resume`, and `modify` tools were added because Claude independently tried to call them before they existed ([BEHAVIOR.md](BEHAVIOR.md) test 13). We built what the model already expected.
 
 ## Costs
 
@@ -147,7 +156,7 @@ Each agent subprocess has its own Claude API budget (set via `--budget`). A simp
 
 - Single machine only. Agents are local processes.
 - No web UI — terminal TUI only.
-- No mid-execution signals (can't redirect a running agent).
+- No mid-execution message injection (pause/modify/resume requires relaunch).
 - Each agent gets its own MCP server process (~200ms startup overhead).
 - Claude Code CLI must be installed and authenticated.
 
