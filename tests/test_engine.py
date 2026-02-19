@@ -53,3 +53,41 @@ class TestEngineBasics:
         children = engine.db.get_children(root)
         all_done = all(c["status"] in ("complete", "failed", "cancelled") for c in children)
         assert all_done
+
+    def test_handle_ask(self, engine, monkeypatch):
+        root = engine.db.create_node("goal", "Root", status="active")
+        ask_node = engine.db.create_node(
+            "ask", "Partial or full migration?",
+            parent_id=root,
+            prompt="Partial or full migration?\nOptions: partial, full\nDefault: partial",
+        )
+        node = engine.db.get_node(ask_node)
+        monkeypatch.setattr("builtins.input", lambda _: "partial")
+        engine._handle_ask(node)
+        result = engine.db.get_node(ask_node)
+        assert result["status"] == "complete"
+        assert result["result"] == "partial"
+
+    def test_handle_ask_default(self, engine, monkeypatch):
+        root = engine.db.create_node("goal", "Root", status="active")
+        ask_node = engine.db.create_node(
+            "ask", "Continue?",
+            parent_id=root,
+            prompt="Continue?\nDefault: yes",
+        )
+        node = engine.db.get_node(ask_node)
+        monkeypatch.setattr("builtins.input", lambda _: "")
+        engine._handle_ask(node)
+        result = engine.db.get_node(ask_node)
+        assert result["status"] == "complete"
+        assert result["result"] == "yes"
+
+    def test_ask_nodes_not_launched_as_agents(self, engine):
+        """Ask nodes should be handled by the engine, not launched as agent processes."""
+        root = engine.db.create_node("goal", "Root", status="active")
+        engine.db.create_node("ask", "Question?", parent_id=root)
+        ready = engine.db.find_ready_nodes()
+        ask_nodes = [n for n in ready if n["node_type"] == "ask"]
+        agent_nodes = [n for n in ready if n["node_type"] != "ask"]
+        assert len(ask_nodes) == 1
+        assert len(agent_nodes) == 0

@@ -87,7 +87,10 @@ class Engine:
                 nid = node["node_id"]
                 if nid in active:
                     continue
-                self._launch_node(nid)
+                if node["node_type"] == "ask":
+                    self._handle_ask(node)
+                else:
+                    self._launch_node(nid)
 
             self._print_tree()
 
@@ -173,6 +176,39 @@ class Engine:
         )
         self.process_manager.register(parent_id, process)
 
+    def _handle_ask(self, node: dict) -> None:
+        """Handle an ask node: prompt the human, read input, store answer."""
+        self.db.update_status(node["node_id"], "active")
+        self._print_tree()
+
+        # Display question
+        bold = "\033[1m"
+        cyan = "\033[36m"
+        reset = "\033[0m"
+        dim = "\033[2m"
+
+        print(f"\n{cyan}{bold}? {node['goal']}{reset}", file=sys.stderr)
+        if node.get("prompt") and node["prompt"] != node["goal"]:
+            # Show options/default from prompt
+            for line in node["prompt"].split("\n"):
+                if line != node["goal"]:
+                    print(f"  {dim}{line}{reset}", file=sys.stderr)
+        print(file=sys.stderr)
+
+        try:
+            answer = input(f"{cyan}> {reset}").strip()
+        except (EOFError, KeyboardInterrupt):
+            answer = ""
+
+        if not answer and node.get("prompt") and "Default:" in node["prompt"]:
+            # Extract default
+            for line in node["prompt"].split("\n"):
+                if line.startswith("Default:"):
+                    answer = line.split(":", 1)[1].strip()
+
+        self.db.complete_node(node["node_id"], answer or "(no answer)")
+        self._check_synthesis(node["node_id"])
+
     # -- TUI --
 
     def _print_tree(self) -> None:
@@ -232,4 +268,5 @@ def _status_style(status: str) -> tuple[str, str]:
         "complete":  ("\033[32m", "✓"),
         "failed":    ("\033[31m", "✗"),
         "cancelled": ("\033[33m", "⊘"),
+        "waiting":   ("\033[36m", "?"),
     }.get(status, ("\033[0m", "?"))
