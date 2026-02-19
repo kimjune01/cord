@@ -1,0 +1,9 @@
+goal "Block string test" #g1 [active]
+  returns: structured
+
+  spawn "Multi-line prompt" #a1 [pending]
+    returns: text
+    prompt: |
+      This is line one.
+      This is line two.
+      This is line three.

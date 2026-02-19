@@ -1,0 +1,24 @@
+goal "Analysis project" #g1 [pending]
+  returns: file
+
+  spawn "Research competitors" #a1 [pending]
+    returns: list
+    prompt: |
+      Research top competitors.
+
+  spawn "Research trends" #a2 [pending]
+    returns: list
+    prompt: |
+      Research industry trends.
+
+  fork "Deep analysis" #a3 [pending]
+    returns: structured
+    blocked-by: #a1, #a2
+    prompt: |
+      Analyze the research results.
+
+  spawn "Write report" #a4 [pending]
+    returns: text
+    blocked-by: #a3
+    prompt: |
+      Write the final report.

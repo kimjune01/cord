@@ -1,0 +1,33 @@
+goal "Competitive landscape report for fintech" #g1 [pending]
+  returns: file
+
+  spawn "Identify top fintech competitors" #a1 [pending]
+    returns: list
+    prompt: |
+      Search for the top 10 fintech companies by market cap.
+      For each: name, valuation, headquarters, key products.
+      Output as a JSON array.
+
+  spawn "Research fintech industry trends" #a2 [pending]
+    returns: list
+    prompt: |
+      Research emerging fintech trends for 2025-2026.
+      Focus on: regulatory changes, AI adoption, embedded finance,
+      open banking. Output as a JSON array.
+
+  fork "Deep competitive analysis" #a3 [pending]
+    returns: structured
+    blocked-by: #a1, #a2
+    prompt: |
+      Using the competitor list and trend research provided,
+      evaluate each company. Score: market position (1-10),
+      innovation (1-10), regulatory readiness (1-10).
+      Identify winners, losers, emerging threats. Output as JSON.
+
+  spawn "Write executive report" #a4 [pending]
+    returns: text
+    blocked-by: #a3
+    prompt: |
+      Write a comprehensive competitive landscape report.
+      Include executive summary, company analysis, trends,
+      and strategic recommendations. Format as markdown.

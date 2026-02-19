@@ -1,0 +1,21 @@
+[project]
+name = "cord"
+version = "0.1.0"
+description = "A coordination protocol for trees of Claude Code agents"
+readme = "README.md"
+authors = [
+    { name = "June Kim", email = "kimjune01@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = ["mcp>=1.26.0"]
+
+[project.scripts]
+cord = "cord.cli:main"
+cord-mcp-server = "cord.mcp.server:main"
+
+[build-system]
+requires = ["uv_build>=0.10.0,<0.11.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = ["pytest", "pytest-timeout"]

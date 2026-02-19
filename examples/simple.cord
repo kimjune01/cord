@@ -1,0 +1,13 @@
+goal "Hello world test" #g1 [pending]
+  returns: text
+
+  spawn "Say hello" #a1 [pending]
+    returns: text
+    prompt: |
+      Say "Hello from cord!" and nothing else.
+
+  spawn "Say goodbye" #a2 [pending]
+    returns: text
+    blocked-by: #a1
+    prompt: |
+      Say "Goodbye from cord!" and nothing else.

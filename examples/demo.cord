@@ -1,0 +1,313 @@
+goal "Competitive landscape report for fintech" #g1 [active]
+  returns: file
+
+  spawn "Identify top fintech competitors" #a1 [complete]
+    returns: list
+    prompt: |
+      Search for the top 10 fintech companies by market cap.
+      For each: name, valuation, headquarters, key products.
+      Output as a JSON array.
+    result: Task complete. I've submitted the JSON array with the top 10 fintech companies by market cap to node #a1, including current valuations sourced from 2026 data.
+
+  spawn "Research fintech industry trends" #a2 [complete]
+    returns: list
+    prompt: |
+      Research emerging fintech trends for 2025-2026.
+      Focus on: regulatory changes, AI adoption, embedded finance,
+      open banking. Output as a JSON array.
+    result: Task complete. The fintech trends research has been compiled and submitted as a JSON array covering all four requested areas: regulatory changes (7 trends including GENIUS Act, DORA, MiCA, AI governance mandates), AI adoption (5 trends including agentic AI at 70% banking adoption, $30B market), embedded finance (5 trends including $454B projected market by 2031), and open banking (4 trends including evolution to Open Finance and A2A payment acceleration).
+
+  fork "Deep competitive analysis" #a3 [complete]
+    returns: structured
+    blocked-by: #a1, #a2
+    prompt: |
+      Using the competitor list and trend research provided,
+      evaluate each company. Score: market position (1-10),
+      innovation (1-10), regulatory readiness (1-10).
+      Identify winners, losers, emerging threats. Output as JSON.
+    result: |
+      Completed the deep competitive analysis for node #a3. The JSON report includes:
+      
+      - **10 fintech companies** scored on market position, innovation, and regulatory readiness (1-10 scale)
+      - **6 winners**: Mastercard (9.0), Visa (8.7), Stripe (8.7), Adyen (8.0), Nubank (7.7), Coinbase (7.7)
+      - **2 at-risk**: PayPal (7.3) facing embedded finance disruption, Klarna (6.7) with BNPL regulatory headwinds
+      - **2 emerging threats**: Revolut (7.3) super-app with licensing gaps to close, SoFi (7.3) with bankin
+
+  spawn "Write executive report" #a4 [complete]
+    returns: text
+    blocked-by: #a3
+    prompt: |
+      Write a comprehensive competitive landscape report.
+      Include executive summary, company analysis, trends,
+      and strategic recommendations. Format as markdown.
+    result: |
+      # Fintech Competitive Landscape Report
+      
+      **Date:** February 18, 2026
+      
+      ---
+      
+      ## Executive Summary
+      
+      The global fintech landscape in 2026 is defined by three converging forces: **agentic AI**, **regulated stablecoins**, and **embedded finance**. These shifts are redrawing competitive boundaries — card networks are moving beyond payments, crypto-native firms are gaining regulatory legitimacy, and infrastructure players are quietly capturing the most defensible positions in the value chain.
+      
+      This report analyzes 10 major fintech competitors across market position, innovation, and regulatory readiness. Our key finding: **the winners are companies that combine scale with adaptability**. Mastercard leads with the highest composite score (9.0/10), but Stripe's innovation velocity and Nubank's emerging-market dominance make them equally compelling long-term bets. Meanwhile, PayPal and Klarna face structural headwinds that demand urgent reinvention.
+      
+      The most critical strategic insight: **the company that becomes the default payment rail for AI agents will capture outsized value over the next decade.** With 70%+ of banking firms adopting agentic AI, this is not a speculative bet — it is the next infrastructure war.
+      
+      ---
+      
+      ## Methodology
+      
+      Each competitor was scored on three dimensions (1–10 scale):
+      
+      | Dimension | Criteria |
+      |---|---|
+      | **Market Position** | Market capitalization, revenue growth, product breadth |
+      | **Innovation** | R&D investment, AI/blockchain adoption, product launches |
+      | **Regulatory Readiness** | Licensing status, compliance infrastructure, regulatory adaptability |
+      
+      **Composite Score** = weighted average of the three dimensions. Companies are classified as **Winners**, **At Risk**, or **Emerging Threats**.
+      
+      ---
+      
+      ## Competitive Analysis
+      
+      ### Winners
+      
+      #### Mastercard — Composite: 9.0
+      
+      | Dimension | Score |
+      |---|---|
+      | Market Position | 10 |
+      | Innovation | 8 |
+      | Regulatory Readiness | 9 |
+      
+      **Market Cap:** $520B | **HQ:** Purchase, NY
+      
+      Mastercard edges out Visa as the top-ranked competitor due to its more aggressive innovation posture. Its startup outreach program targeting agentic AI firms, multi-token network for stablecoins, and strong open banking position via the Finicity acquisition give it optionality across both card-based and account-to-account payment futures. Decades of compliance infrastructure make regulatory readiness a durable moat.
+      
+      **Key Products:** Card network, Open Banking (Finicity), Multi-token network, Agentic AI startup outreach
+      
+      ---
+      
+      #### Visa — Composite: 8.7
+      
+      | Dimension | Score |
+      |---|---|
+      | Market Position | 10 |
+      | Innovation | 7 |
+      | Regulatory Readiness | 9 |
+      
+      **Market Cap:** $662.6B | **HQ:** San Francisco
+      
+      The largest fintech by market cap with unmatched network scale. Visa is investing in agentic commerce APIs and non-payment services to counter fee pressure from regulators and A2A payment alternatives. Its regulatory moat — built over decades — remains the deepest in the industry. The slight innovation gap vs. Mastercard is the primary concern.
+      
+      **Key Products:** Card network, Visa Direct, Visa B2B Connect, CyberSource, Agentic commerce APIs
+      
+      ---
+      
+      #### Stripe — Composite: 8.7
+      
+      | Dimension | Score |
+      |---|---|
+      | Market Position | 9 |
+      | Innovation | 10 |
+      | Regulatory Readiness | 7 |
+      
+      **Market Cap:** $91.5B | **HQ:** San Francisco
+      
+      The most innovative pure-play fintech. Stripe's 2026 Tempo L1 blockchain launch and agentic commerce suite place it at the technological frontier. Its developer-first ecosystem is a structural moat that competitors struggle to replicate. The gap to close is regulatory readiness — still private, no banking charter, and navigating multi-jurisdiction compliance as it scales globally.
+      
+      **Key Products:** Payment processing, Stripe Atlas, Stripe Treasury, Stripe Issuing, Tempo blockchain (L1), Agentic Commerce Suite
+      
+      ---
+      
+      #### Adyen — Composite: 8.0
+      
+      | Dimension | Score |
+      |---|---|
+      | Market Position | 8 |
+      | Innovation | 7 |
+      | Regulatory Readiness | 9 |
+      
+      **Market Cap:** $46.2B | **HQ:** Amsterdam
+      
+      The enterprise payments powerhouse, processing for Meta, Uber, Microsoft, and eBay. Adyen's unified commerce platform supporting 250+ payment methods is the gold standard for large-scale merchants. Fully DORA-compliant and EU-licensed, it has best-in-class regulatory positioning. Less flashy on innovation but executes with rare consistency — 24% YoY growth speaks for itself.
+      
+      **Key Products:** Unified commerce platform, Issuing, Embedded financial products
+      
+      ---
+      
+      #### Nubank — Composite: 7.7
+      
+      | Dimension | Score |
+      |---|---|
+      | Market Position | 8 |
+      | Innovation | 8 |
+      | Regulatory Readiness | 7 |
+      
+      **Market Cap:** $70B | **HQ:** São Paulo, Brazil
+      
+      The fastest-growing major fintech with 167% YoY growth and 100M+ customers across Latin America. AI-driven credit scoring gives Nubank a decisive edge in underbanked markets where traditional credit data is sparse. Its application for a US banking charter signals ambitious geographic expansion. The primary risk is entering the heavily regulated US market without the compliance muscle of domestic incumbents.
+      
+      **Key Products:** Digital banking, Credit cards, Personal loans, Insurance, Crypto trading
+      
+      ---
+      
+      #### Coinbase — Composite: 7.7
+      
+      | Dimension | Score |
+      |---|---|
+      | Market Position | 7 |
+      | Innovation | 8 |
+      | Regulatory Readiness | 8 |
+      
+      **Market Cap:** $52.3B | **HQ:** San Francisco
+      
+      The clear beneficiary of the GENIUS Act stablecoin framework and the broader pro-crypto regulatory shift in the US. The Base L2 ecosystem is growing rapidly, and the USDC partnership with Circle is a structural advantage in the regulated stablecoin era. Early MiCA compliance secures its EU operations. The primary risk remains high cyclicality tied to crypto market sentiment.
+      
+      **Key Products:** Crypto exchange, Coinbase Prime, Base L2, USDC partnership, Staking
+      
+      ---
+      
+      ### At Risk
+      
+      #### PayPal — Composite: 7.3
+      
+      | Dimension | Score |
+      |---|---|
+      | Market Position | 7 |
+      | Innovation | 7 |
+      | Regulatory Readiness | 8 |
+      
+      **Market Cap:** $56B | **HQ:** San Jose
+      
+      PayPal is fighting a war on multiple fronts. Embedded finance is eroding its checkout dominance as merchants increasingly bypass PayPal's consumer-facing experience in favor of invisible, API-driven payment infrastructure. The PYUSD stablecoin is a genuine bright spot — circulation surged 600% to $3.6B — but it is not yet clear whether stablecoins can offset the core business's margin compression. CEO Alex Chriss is executing a reinvention strategy, but time is not on PayPal's side.
+      
+      **Key Products:** PayPal Wallet, Venmo, PYUSD stablecoin, Braintree, BNPL
+      
+      ---
+      
+      #### Klarna — Composite: 6.7
+      
+      | Dimension | Score |
+      |---|---|
+      | Market Position | 6 |
+      | Innovation | 8 |
+      | Regulatory Readiness | 6 |
+      
+      **Market Cap:** $14.6B | **HQ:** Stockholm
+      
+      The BNPL pioneer went public in 2025 and has made aggressive AI bets — replacing 700 support agents with AI and planning a stablecoin launch on a Stripe-related blockchain. However, BNPL faces increasing consumer protection scrutiny globally, and Klarna's product focus remains narrower than super-app competitors like Revolut. The AI-driven cost cutting is impressive but may not offset structural regulatory and competitive headwinds.
+      
+      **Key Products:** BNPL, Klarna Card, Shopping app, AI assistant, Planned stablecoin
+      
+      ---
+      
+      ### Emerging Threats
+      
+      #### Revolut — Composite: 7.3
+      
+      | Dimension | Score |
+      |---|---|
+      | Market Position | 7 |
+      | Innovation | 9 |
+      | Regulatory Readiness | 6 |
+      
+      **Market Cap:** $45B | **HQ:** London
+      
+      Europe's most valuable fintech with 50M customers across 48 countries and relentless product velocity. The super-app model — spanning banking, crypto, trading, and insurance — gives it the broadest surface area of any challenger. The constraint is regulatory: the UK banking license was only recently obtained, and multi-jurisdiction licensing remains a work in progress. The expected 2026 IPO will unlock capital for expansion. Once the licensing gaps close, Revolut could challenge incumbents across every major financial vertical.
+      
+      **Key Products:** Super-app (banking, crypto, trading, insurance), Business banking, RevPoints, Revolut Pay
+      
+      ---
+      
+      #### SoFi Technologies — Composite: 7.3
+      
+      | Dimension | Score |
+      |---|---|
+      | Market Position | 6 |
+      | Innovation | 7 |
+      | Regulatory Readiness | 9 |
+      
+      **Market Cap:** $30B | **HQ:** San Francisco
+      
+      Eight consecutive quarters of GAAP profitability have proven SoFi's model works. Its national banking charter provides a regulatory moat that smaller fintechs cannot easily replicate. The shift to a capital-light model (40%+ fee-based revenue) improves resilience, and the Galileo/Technisys infrastructure play positions SoFi as a B2B enabler — not just a consumer bank. Watch for S&P 500 inclusion as a catalyst. Stablecoin ambitions add upside but also regulatory complexity.
+      
+      **Key Products:** Digital banking, Student loan refinancing, Investing, Galileo platform, Technisys core banking
+      
+      ---
+      
+      ## Composite Score Rankings
+      
+      | Rank | Company | Composite | Classification |
+      |------|---------|-----------|----------------|
+      | 1 | Mastercard | 9.0 | Winner |
+      | 2 | Visa | 8.7 | Winner |
+      | 3 | Stripe | 8.7 | Winner |
+      | 4 | Adyen | 8.0 | Winner |
+      | 5 | Nubank | 7.7 | Winner |
+      | 6 | Coinbase | 7.7 | Winner |
+      | 7 | PayPal | 7.3 | At Risk |
+      | 7 | Revolut | 7.3 | Emerging Threat |
+      | 7 | SoFi | 7.3 | Emerging Threat |
+      | 10 | Klarna | 6.7 | At Risk |
+      
+      ---
+      
+      ## Key Trends Reshaping the Landscape
+      
+      ### 1. Agentic AI Is the New Battleground
+      
+      Visa, Mastercard, and Stripe are all building agentic commerce capabilities — payment infrastructure designed for AI agents that transact autonomously on behalf of users and businesses. With over 70% of banking firms adopting agentic AI, the company that becomes the default payment rail for AI agents will capture outsized value. This is the most consequential competitive dynamic in fintech today.
+      
+      ### 2. Stablecoins Are Reshuffling Competitive Positions
+      
+      The GENIUS Act created a regulated playing field for stablecoins in the US. PayPal (PYUSD), Stripe (Tempo), Klarna, and Coinbase (USDC) are all making stablecoin bets. Critically, the card networks are adapting rather than fighting — Mastercard's multi-token network demonstrates that incumbents will play in both fiat and tokenized worlds. Stablecoins are no longer a crypto niche; they are a payments infrastructure category.
+      
+      ### 3. Regulatory Readiness Is a Durable Competitive Advantage
+      
+      With compliance workloads surging 20–30% year-over-year, companies with mature compliance infrastructure — Visa, Mastercard, Adyen, SoFi — hold structural advantages that compound over time. Challengers like Revolut and Klarna face licensing friction that directly limits their growth velocity. In an era of increasing regulatory complexity (DORA, MiCA, GENIUS Act, evolving BNPL rules), compliance is not overhead — it is a moat.
+      
+      ### 4. Embedded Finance Favors Infrastructure Over Consumer Brands
+      
+      The $156B embedded finance market rewards companies that power financial services behind the scenes — Stripe, Adyen, and SoFi/Galileo — over consumer-facing brands. PayPal and Klarna are the most exposed to disintermediation as merchants and platforms embed payments, lending, and insurance directly into their own experiences. The winning strategy is to be the invisible infrastructure layer, not the branded checkout button.
+      
+      ### 5. A2A Payments Are a Slow-Burn Threat to Card Networks
+      
+      Open banking-powered account-to-account payments doubled from 68M to 130M transactions in the UK alone. While not an immediate existential threat to card rails, the trajectory clearly favors payment diversification over the next 3–5 years. Mastercard's proactive investment in open banking (Finicity) is the right strategic hedge; Visa's response has been less decisive.
+      
+      ---
+      
+      ## Strategic Recommendations
+      
+      ### For Incumbents (Visa, Mastercard)
+      - **Accelerate agentic AI integration.** The window to become the default AI-agent payment rail is 18–24 months. First-mover advantage will be durable.
+      - **Deepen stablecoin interoperability.** Multi-token network strategies should be expanded beyond proof-of-concept. Card networks must be equally fluent in fiat and tokenized settlement.
+      - **Invest in A2A payment hedges.** Rather than defending card rails exclusively, build or acquire A2A capabilities to own both sides of the payment diversification trend.
+      
+      ### For Innovators (Stripe, Coinbase, Nubank)
+      - **Close the regulatory gap.** Stripe's innovation lead is meaningless if licensing friction slows its global expansion. Securing banking charters and multi-jurisdiction licenses should be a board-level priority.
+      - **Leverage developer ecosystems.** Stripe's developer moat and Coinbase's Base L2 developer community are defensible advantages. Double down on ecosystem building.
+      - **Expand geographic footprint.** Nubank's US charter application and Coinbase's MiCA compliance are the right moves. Growth in 2026–2028 will disproportionately reward companies with multi-market presence.
+      
+      ### For At-Risk Players (PayPal, Klarna)
+      - **PayPal must choose:** Become an infrastructure company (lean into Braintree and PYUSD) or reinvent the consumer experience. Trying to do both risks doing neither well.
+      - **Klarna should consolidate.** The BNPL model alone is not a long-term franchise. The stablecoin and AI bets are the right diversification moves, but Klarna needs to execute faster than the regulatory environment tightens around BNPL.
+      
+      ### For Emerging Threats (Revolut, SoFi)
+      - **Revolut: Licensing is everything.** The product and growth engine work. Securing full banking licenses across key markets unlocks the super-app model's full potential.
+      - **SoFi: Scale the B2B platform.** Galileo/Technisys is the most underappreciated asset in fintech. Positioning as banking-infrastructure-as-a-service could be more valuable than the consumer banking franchise.
+      
+      ---
+      
+      ## Conclusion
+      
+      The fintech landscape in 2026 is not a story of disruption versus incumbency. It is a story of **convergence** — where card networks build blockchain rails, crypto firms seek banking charters, and neobanks become infrastructure providers. The winners will be companies that combine three capabilities simultaneously: **technological innovation, regulatory maturity, and ecosystem scale**.
+      
+      The companies best positioned for the next five years are Mastercard (highest composite score, balanced across all dimensions), Stripe (innovation leadership with regulatory gap closing), and Adyen (quiet execution with enterprise lock-in). The most important variable to watch is **agentic AI adoption** — the payment rail that AI agents default to will define the next era of financial infrastructure.
+      
+      ---
+      
+      *Report prepared February 18, 2026. Scores and assessments reflect publicly available data and analyst estimates as of the report date.*

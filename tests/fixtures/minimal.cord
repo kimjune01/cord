@@ -1,0 +1,7 @@
+goal "Simple test" #g1 [pending]
+  returns: text
+
+  spawn "Do the thing" #a1 [pending]
+    returns: text
+    prompt: |
+      Do the thing and return the result.

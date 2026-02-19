@@ -1,0 +1,16 @@
+goal "Hello world test" #g1 [complete]
+  returns: text
+  result: |
+    Hello from cord!
+    Goodbye from cord!
+
+  spawn "Say hello" #a1 [complete]
+    returns: text
+    prompt: Say "Hello from cord!" and nothing else.
+    result: Hello from cord!
+
+  spawn "Say goodbye" #a2 [complete]
+    returns: text
+    blocked-by: #a1
+    prompt: Say "Goodbye from cord!" and nothing else.
+    result: Goodbye from cord!
