@@ -1,7 +1,7 @@
 [project]
 name = "cord"
 version = "0.1.0"
-description = "A coordination protocol for trees of Claude Code agents"
+description = "A coordination protocol for trees of agent workers"
 readme = "README.md"
 authors = [
     { name = "June Kim", email = "kimjune01@gmail.com" }

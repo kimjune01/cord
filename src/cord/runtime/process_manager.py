@@ -1,4 +1,4 @@
-"""Track and manage Claude CLI subprocess lifecycle."""
+"""Track and manage agent subprocess lifecycle."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ class ProcessInfo:
 
 
 class ProcessManager:
-    """Manages claude CLI subprocesses for active nodes."""
+    """Manages agent CLI subprocesses for active nodes."""
 
     def __init__(self) -> None:
         self._processes: dict[str, ProcessInfo] = {}

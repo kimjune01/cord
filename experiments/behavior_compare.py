@@ -29,7 +29,8 @@ from typing import Callable
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from cord.db import CordDB
-from cord.runtime.dispatcher import generate_mcp_config, MCP_TOOLS
+from cord.runtime.harness.base import AgentLaunchRequest
+from cord.runtime.harness.claude import ClaudeHarness
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 RESULTS_FILE = Path(__file__).resolve().parent / "RESULTS.md"
@@ -102,7 +103,9 @@ def setup_tool_discovery(db: CordDB) -> tuple[str, str]:
     """Tree with root + 2 children. Does the model read_tree first?"""
     root = db.create_node("goal", "Build competitive report", status="active")
     db.create_node("spawn", "Research market trends", parent_id=root, status="pending")
-    db.create_node("spawn", "Analyze competitor pricing", parent_id=root, status="pending")
+    db.create_node(
+        "spawn", "Analyze competitor pricing", parent_id=root, status="pending"
+    )
     prompt = (
         f"You are node {root} in a coordination tree. "
         f"Your goal: Build competitive report.\n\n"
@@ -114,7 +117,9 @@ def setup_tool_discovery(db: CordDB) -> tuple[str, str]:
 
 def setup_self_decomposition(db: CordDB) -> tuple[str, str]:
     """Empty tree. Does the model decompose into subtasks?"""
-    root = db.create_node("goal", "Build a competitive analysis report", status="active")
+    root = db.create_node(
+        "goal", "Build a competitive analysis report", status="active"
+    )
     prompt = (
         f"You are node {root} in a coordination tree. "
         f"Your goal: Build a competitive analysis report.\n\n"
@@ -150,15 +155,17 @@ def setup_authority_model(db: CordDB) -> tuple[str, str]:
     agent = db.create_node("spawn", "Research task", parent_id=root, status="active")
     sibling = db.create_node("spawn", "Design task", parent_id=root, status="active")
     db.create_node("spawn", "UI mockups", parent_id=sibling, status="pending")
-    target = db.create_node("spawn", "Backend design", parent_id=sibling, status="pending")
+    target = db.create_node(
+        "spawn", "Backend design", parent_id=sibling, status="pending"
+    )
     prompt = (
         f"You are node {agent} in a coordination tree. Your goal: Research task.\n\n"
         "Goal chain:\n"
-        f"  {root} \"Project coordination\"\n"
-        f"    {agent} \"Research task\" <- you are here\n"
-        f"    {sibling} \"Design task\"\n"
-        f"      #4 \"UI mockups\"\n"
-        f"      {target} \"Backend design\"\n\n"
+        f'  {root} "Project coordination"\n'
+        f'    {agent} "Research task" <- you are here\n'
+        f'    {sibling} "Design task"\n'
+        f'      #4 "UI mockups"\n'
+        f'      {target} "Backend design"\n\n'
         f"Stop node {target} (Backend design) because the requirements have changed. "
         "Then call complete() with what you did."
     )
@@ -215,22 +222,26 @@ def setup_goal_chain(db: CordDB) -> tuple[str, str]:
         "goal", "Comprehensive fintech market report", status="active"
     )
     mid = db.create_node(
-        "spawn", "Deep competitive analysis",
-        parent_id=root, status="active",
+        "spawn",
+        "Deep competitive analysis",
+        parent_id=root,
+        status="active",
         prompt="Analyze competitors in depth",
     )
     leaf = db.create_node(
-        "spawn", "Evaluate Stripe's pricing model",
-        parent_id=mid, status="active",
+        "spawn",
+        "Evaluate Stripe's pricing model",
+        parent_id=mid,
+        status="active",
         prompt="Focus on Stripe's pricing tiers, volume discounts, and hidden fees",
     )
     prompt = (
         f"You are node {leaf} in a coordination tree. "
         f"Your goal: Evaluate Stripe's pricing model.\n\n"
         "Goal chain:\n"
-        f"  {root} \"Comprehensive fintech market report\"\n"
-        f"    {mid} \"Deep competitive analysis\"\n"
-        f"      {leaf} \"Evaluate Stripe's pricing model\" <- you are here\n\n"
+        f'  {root} "Comprehensive fintech market report"\n'
+        f'    {mid} "Deep competitive analysis"\n'
+        f'      {leaf} "Evaluate Stripe\'s pricing model" <- you are here\n\n'
         "Focus on Stripe's pricing tiers, volume discounts, and hidden fees.\n\n"
         "Execute your task. Be aware of where you fit in the larger project. "
         "Call complete() with your analysis when done."
@@ -239,14 +250,51 @@ def setup_goal_chain(db: CordDB) -> tuple[str, str]:
 
 
 SCENARIOS = [
-    TestScenario("1", "Tool Discovery", "Does the model call read_tree() first?", setup_tool_discovery),
-    TestScenario("2", "Self-Decomposition", "Does the model break goals into subtasks?", setup_self_decomposition),
-    TestScenario("3", "Fork vs Spawn", "Does the model correctly choose fork vs spawn?", setup_fork_vs_spawn),
-    TestScenario("4", "Authority Model", "Does the model respect authority boundaries?", setup_authority_model),
-    TestScenario("5", "Error Recovery", "How does the model handle unsupported operations?", setup_error_recovery),
-    TestScenario("6", "Structured Output", "Does the model output valid JSON when asked?", setup_structured_output),
-    TestScenario("7", "Elicitation", "Does the model use ask() correctly?", setup_elicitation),
-    TestScenario("8", "Goal Chain", "Does the model understand its position in hierarchy?", setup_goal_chain),
+    TestScenario(
+        "1",
+        "Tool Discovery",
+        "Does the model call read_tree() first?",
+        setup_tool_discovery,
+    ),
+    TestScenario(
+        "2",
+        "Self-Decomposition",
+        "Does the model break goals into subtasks?",
+        setup_self_decomposition,
+    ),
+    TestScenario(
+        "3",
+        "Fork vs Spawn",
+        "Does the model correctly choose fork vs spawn?",
+        setup_fork_vs_spawn,
+    ),
+    TestScenario(
+        "4",
+        "Authority Model",
+        "Does the model respect authority boundaries?",
+        setup_authority_model,
+    ),
+    TestScenario(
+        "5",
+        "Error Recovery",
+        "How does the model handle unsupported operations?",
+        setup_error_recovery,
+    ),
+    TestScenario(
+        "6",
+        "Structured Output",
+        "Does the model output valid JSON when asked?",
+        setup_structured_output,
+    ),
+    TestScenario(
+        "7", "Elicitation", "Does the model use ask() correctly?", setup_elicitation
+    ),
+    TestScenario(
+        "8",
+        "Goal Chain",
+        "Does the model understand its position in hierarchy?",
+        setup_goal_chain,
+    ),
 ]
 
 
@@ -265,16 +313,19 @@ def _clean_env() -> dict[str, str]:
     return env
 
 
-def build_cmd(prompt: str, model: str, config_path: Path, budget: float) -> list[str]:
-    """Build the claude CLI command."""
-    return [
-        "claude", "-p", prompt,
-        "--model", model,
-        "--mcp-config", str(config_path),
-        "--allowedTools", " ".join(MCP_TOOLS),
-        "--dangerously-skip-permissions",
-        "--max-budget-usd", str(budget),
-    ]
+def build_cmd(
+    prompt: str, model: str, db_path: Path, agent_id: str, budget: float
+) -> list[str]:
+    """Build the Claude CLI command via harness."""
+    request = AgentLaunchRequest(
+        db_path=db_path,
+        node_id=agent_id,
+        prompt=prompt,
+        model=model,
+        max_budget_usd=budget,
+        project_dir=PROJECT_DIR,
+    )
+    return ClaudeHarness().build_launch_spec(request).cmd
 
 
 def run_single(
@@ -294,12 +345,7 @@ def run_single(
         agent_id, prompt = scenario.setup(db)
         nodes_before = snapshot_nodes(db)
 
-        # Generate MCP config
-        config = generate_mcp_config(db_path, agent_id, PROJECT_DIR)
-        config_path = tmp_dir / "mcp.json"
-        config_path.write_text(json.dumps(config, indent=2))
-
-        cmd = build_cmd(prompt, model, config_path, budget)
+        cmd = build_cmd(prompt, model, db_path, agent_id, budget)
 
         if dry_run:
             print(f"  {model}: DRY RUN")
@@ -307,16 +353,25 @@ def run_single(
             print(f"    Nodes: {len(nodes_before)}")
             print(f"    Cmd: {' '.join(cmd[:6])}...")
             return TestResult(
-                test_id=scenario.id, test_name=scenario.name, model=model,
-                stdout="(dry run)", stderr="", returncode=0, elapsed=0,
-                nodes_before=nodes_before, nodes_after=nodes_before,
+                test_id=scenario.id,
+                test_name=scenario.name,
+                model=model,
+                stdout="(dry run)",
+                stderr="",
+                returncode=0,
+                elapsed=0,
+                nodes_before=nodes_before,
+                nodes_after=nodes_before,
             )
 
         print(f"  {model}...", end=" ", flush=True)
         start = time.time()
         result = subprocess.run(
-            cmd, capture_output=True, text=True,
-            timeout=timeout, cwd=str(PROJECT_DIR),
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=str(PROJECT_DIR),
             env=_clean_env(),
         )
         elapsed = time.time() - start
@@ -326,10 +381,15 @@ def run_single(
         nodes_after = snapshot_nodes(db_after)
 
         tr = TestResult(
-            test_id=scenario.id, test_name=scenario.name, model=model,
-            stdout=result.stdout, stderr=result.stderr,
-            returncode=result.returncode, elapsed=elapsed,
-            nodes_before=nodes_before, nodes_after=nodes_after,
+            test_id=scenario.id,
+            test_name=scenario.name,
+            model=model,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            returncode=result.returncode,
+            elapsed=elapsed,
+            nodes_before=nodes_before,
+            nodes_after=nodes_after,
         )
         print(f"done ({elapsed:.1f}s, +{tr.nodes_created} nodes)")
         return tr
@@ -337,16 +397,30 @@ def run_single(
     except subprocess.TimeoutExpired:
         print(f"TIMEOUT ({timeout}s)")
         return TestResult(
-            test_id=scenario.id, test_name=scenario.name, model=model,
-            stdout="", stderr="", returncode=-1, elapsed=float(timeout),
-            nodes_before=[], nodes_after=[], error="Timeout",
+            test_id=scenario.id,
+            test_name=scenario.name,
+            model=model,
+            stdout="",
+            stderr="",
+            returncode=-1,
+            elapsed=float(timeout),
+            nodes_before=[],
+            nodes_after=[],
+            error="Timeout",
         )
     except Exception as e:
         print(f"ERROR: {e}")
         return TestResult(
-            test_id=scenario.id, test_name=scenario.name, model=model,
-            stdout="", stderr="", returncode=-1, elapsed=0,
-            nodes_before=[], nodes_after=[], error=str(e),
+            test_id=scenario.id,
+            test_name=scenario.name,
+            model=model,
+            stdout="",
+            stderr="",
+            returncode=-1,
+            elapsed=0,
+            nodes_before=[],
+            nodes_after=[],
+            error=str(e),
         )
     finally:
         if not dry_run:
@@ -425,12 +499,14 @@ def generate_report(results: list[TestResult], models: list[str]) -> str:
         if not data:
             continue
 
-        lines.extend([
-            f"## Test {s.id}: {s.name}",
-            "",
-            f"**Question:** {s.description}",
-            "",
-        ])
+        lines.extend(
+            [
+                f"## Test {s.id}: {s.name}",
+                "",
+                f"**Question:** {s.description}",
+                "",
+            ]
+        )
 
         for model in models:
             r = data.get(model)
@@ -438,13 +514,15 @@ def generate_report(results: list[TestResult], models: list[str]) -> str:
                 lines.extend([f"### {model.title()}", "", "*Skipped*", ""])
                 continue
 
-            lines.extend([
-                f"### {model.title()}",
-                "",
-                f"- **Time:** {r.elapsed:.1f}s",
-                f"- **Nodes created:** {r.nodes_created}",
-                f"- **Return code:** {r.returncode}",
-            ])
+            lines.extend(
+                [
+                    f"### {model.title()}",
+                    "",
+                    f"- **Time:** {r.elapsed:.1f}s",
+                    f"- **Nodes created:** {r.nodes_created}",
+                    f"- **Return code:** {r.returncode}",
+                ]
+            )
 
             if r.error:
                 lines.extend([f"- **Error:** {r.error}", ""])
@@ -471,14 +549,16 @@ def generate_report(results: list[TestResult], models: list[str]) -> str:
                 result_short = result_val[:500]
                 if len(result_val) > 500:
                     result_short += "\n... (truncated)"
-                lines.extend([
-                    "**Agent result (from complete()):**",
-                    "",
-                    "```",
-                    result_short,
-                    "```",
-                    "",
-                ])
+                lines.extend(
+                    [
+                        "**Agent result (from complete()):**",
+                        "",
+                        "```",
+                        result_short,
+                        "```",
+                        "",
+                    ]
+                )
                 if s.id == "6":
                     lines.append(f"**Valid JSON:** {'Yes' if is_json else 'No'}")
                     lines.append("")
@@ -488,19 +568,21 @@ def generate_report(results: list[TestResult], models: list[str]) -> str:
                 output = r.stdout.strip()
                 if len(output) > 1500:
                     output = output[:1500] + "\n\n... (truncated)"
-                lines.extend([
-                    "**CLI output:**",
-                    "",
-                    "<details>",
-                    "<summary>Click to expand</summary>",
-                    "",
-                    "```",
-                    output,
-                    "```",
-                    "",
-                    "</details>",
-                    "",
-                ])
+                lines.extend(
+                    [
+                        "**CLI output:**",
+                        "",
+                        "<details>",
+                        "<summary>Click to expand</summary>",
+                        "",
+                        "```",
+                        output,
+                        "```",
+                        "",
+                        "</details>",
+                        "",
+                    ]
+                )
 
         lines.extend(["---", ""])
 
@@ -515,23 +597,32 @@ def main():
         description="Compare Opus vs Sonnet behavior on Cord MCP tools"
     )
     parser.add_argument(
-        "--tests", type=str, default=None,
+        "--tests",
+        type=str,
+        default=None,
         help="Comma-separated test IDs (e.g., 1,3,5). Default: all",
     )
     parser.add_argument(
-        "--models", type=str, default=",".join(DEFAULT_MODELS),
+        "--models",
+        type=str,
+        default=",".join(DEFAULT_MODELS),
         help=f"Comma-separated models (default: {','.join(DEFAULT_MODELS)})",
     )
     parser.add_argument(
-        "--budget", type=float, default=DEFAULT_BUDGET,
+        "--budget",
+        type=float,
+        default=DEFAULT_BUDGET,
         help=f"Max budget per test per model in USD (default: {DEFAULT_BUDGET})",
     )
     parser.add_argument(
-        "--timeout", type=int, default=DEFAULT_TIMEOUT,
+        "--timeout",
+        type=int,
+        default=DEFAULT_TIMEOUT,
         help=f"Timeout per test in seconds (default: {DEFAULT_TIMEOUT})",
     )
     parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Set up DB and show commands without running claude CLI",
     )
     args = parser.parse_args()
@@ -562,8 +653,10 @@ def main():
         print(f"[Test {scenario.id}] {scenario.name}")
         for model in models:
             result = run_single(
-                scenario, model,
-                budget=args.budget, timeout=args.timeout,
+                scenario,
+                model,
+                budget=args.budget,
+                timeout=args.timeout,
                 dry_run=args.dry_run,
             )
             results.append(result)
