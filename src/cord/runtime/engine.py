@@ -8,7 +8,8 @@ from pathlib import Path
 
 from cord.db import CordDB
 from cord.prompts import build_agent_prompt, build_synthesis_prompt
-from cord.runtime.dispatcher import launch_agent
+from cord.runtime.harness.base import AgentHarness, AgentLaunchRequest
+from cord.runtime.harness.factory import resolve_harness
 from cord.runtime.process_manager import ProcessManager
 
 
@@ -26,6 +27,7 @@ class Engine:
         max_budget_usd: float = 2.0,
         model: str = "sonnet",
         project_dir: Path | None = None,
+        harness: AgentHarness | None = None,
     ):
         self.goal = goal
         self.project_dir = (project_dir or Path.cwd()).resolve()
@@ -37,6 +39,7 @@ class Engine:
         self.poll_interval = poll_interval
         self.max_budget_usd = max_budget_usd
         self.model = model
+        self.harness = harness
         self.process_manager = ProcessManager()
         self.db = CordDB(self.db_path)
         self._last_tree_hash = ""
@@ -98,7 +101,9 @@ class Engine:
             if self.process_manager.active_count == 0 and not ready:
                 pending = [n for n in self.db.all_nodes() if n["status"] == "pending"]
                 if pending:
-                    self._log(f"Stuck: {len(pending)} pending nodes with unmet dependencies")
+                    self._log(
+                        f"Stuck: {len(pending)} pending nodes with unmet dependencies"
+                    )
                 break
 
             time.sleep(self.poll_interval)
@@ -107,15 +112,25 @@ class Engine:
         prompt = build_agent_prompt(self.db, node_id)
         self.db.update_status(node_id, "active")
 
-        process = launch_agent(
-            self.db_path,
-            node_id,
-            prompt,
+        process = self._launch_process(node_id, prompt)
+        self.process_manager.register(node_id, process)
+
+    def _launch_process(self, node_id: str, prompt: str):
+        request = AgentLaunchRequest(
+            db_path=self.db_path,
+            node_id=node_id,
+            prompt=prompt,
             max_budget_usd=self.max_budget_usd,
             model=self.model,
             project_dir=self.project_dir,
         )
-        self.process_manager.register(node_id, process)
+        harness = self._get_harness()
+        return harness.launch(request)
+
+    def _get_harness(self) -> AgentHarness:
+        if self.harness is None:
+            self.harness = resolve_harness()
+        return self.harness
 
     def _handle_completion(self, node_id: str, return_code: int, stdout: str) -> None:
         node = self.db.get_node(node_id)
@@ -144,8 +159,7 @@ class Engine:
         children = self.db.get_children(parent_id)
 
         all_done = all(
-            c["status"] in ("complete", "failed", "cancelled")
-            for c in children
+            c["status"] in ("complete", "failed", "cancelled") for c in children
         )
         if not all_done:
             return
@@ -166,14 +180,7 @@ class Engine:
         # Relaunch parent for synthesis
         self.db.update_status(parent_id, "active")
         prompt = build_synthesis_prompt(self.db, parent_id)
-        process = launch_agent(
-            self.db_path,
-            parent_id,
-            prompt,
-            max_budget_usd=self.max_budget_usd,
-            model=self.model,
-            project_dir=self.project_dir,
-        )
+        process = self._launch_process(parent_id, prompt)
         self.process_manager.register(parent_id, process)
 
     def _handle_ask(self, node: dict) -> None:
@@ -263,10 +270,10 @@ class Engine:
 
 def _status_style(status: str) -> tuple[str, str]:
     return {
-        "pending":   ("\033[90m", "○"),
-        "active":    ("\033[34m", "●"),
-        "complete":  ("\033[32m", "✓"),
-        "failed":    ("\033[31m", "✗"),
+        "pending": ("\033[90m", "○"),
+        "active": ("\033[34m", "●"),
+        "complete": ("\033[32m", "✓"),
+        "failed": ("\033[31m", "✗"),
         "cancelled": ("\033[33m", "⊘"),
-        "waiting":   ("\033[36m", "?"),
+        "waiting": ("\033[36m", "?"),
     }.get(status, ("\033[0m", "?"))

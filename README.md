@@ -1,6 +1,6 @@
 # Cord
 
-A coordination protocol for trees of Claude Code agents.
+A coordination protocol for trees of agent workers.
 
 One goal in, multiple agents out. They decompose, parallelize, wait on dependencies, and synthesize — all through a shared SQLite database.
 
@@ -31,8 +31,9 @@ No workflow was hardcoded. The agent built this tree at runtime.
 ## Prerequisites
 
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) installed and authenticated (`claude` command available)
-- An Anthropic API key with sufficient credits
+- At least one supported agent CLI installed and authenticated:
+  - [Amp CLI](https://ampcode.com/) (`amp` command available)
+  - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) (`claude` command available)
 
 ## Install
 
@@ -51,7 +52,13 @@ cord run "Analyze the pros and cons of Rust vs Go for CLI tools"
 # Or point it at a planning doc
 cord run plan.md
 
-# Control budget and model
+# Force a backend
+cord run "goal" --amp
+cord run "goal" --claude
+# (also supported)
+cord --amp run "goal"
+
+# Control budget and model (Claude backend)
 cord run "goal" --budget 5.0 --model opus
 ```
 
@@ -61,6 +68,10 @@ cord run "goal" --budget 5.0 --model opus
 |------|---------|-------------|
 | `--budget` | 2.0 | Max USD per agent subprocess |
 | `--model` | sonnet | Claude model (sonnet, opus, haiku) |
+| `--amp` | auto | Force Amp harness |
+| `--claude` | auto | Force Claude harness |
+
+If neither backend flag is passed, Cord auto-detects available CLIs and chooses in this order: `amp` first, then `claude`. If neither binary is installed, the CLI exits with an actionable install error.
 
 ## How it works
 
@@ -128,7 +139,8 @@ src/cord/
     prompts.py              # Prompt assembly for agents
     runtime/
         engine.py           # Main loop, TUI
-        dispatcher.py       # Launch claude CLI processes
+        harness/            # Agent harness abstraction + implementations
+        dispatcher.py       # Compatibility wrapper (Claude launch)
         process_manager.py  # Track subprocesses
     mcp/
         server.py           # MCP tools (one server per agent)
@@ -158,7 +170,7 @@ Each agent subprocess has its own Claude API budget (set via `--budget`). A simp
 - No web UI — terminal TUI only.
 - No mid-execution message injection (pause/modify/resume requires relaunch).
 - Each agent gets its own MCP server process (~200ms startup overhead).
-- Claude Code CLI must be installed and authenticated.
+- Amp CLI or Claude Code CLI must be installed and authenticated.
 
 ## Alternative implementations
 

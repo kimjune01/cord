@@ -1,42 +1,12 @@
-"""Launch claude CLI processes for cord nodes."""
+"""Compatibility wrappers around runtime harness utilities."""
 
 from __future__ import annotations
 
-import json
 import subprocess
 from pathlib import Path
 
-
-MCP_TOOLS = [
-    "mcp__cord__read_tree",
-    "mcp__cord__read_node",
-    "mcp__cord__spawn",
-    "mcp__cord__fork",
-    "mcp__cord__ask",
-    "mcp__cord__stop",
-    "mcp__cord__complete",
-    "mcp__cord__pause",
-    "mcp__cord__resume",
-    "mcp__cord__modify",
-]
-
-
-def generate_mcp_config(db_path: Path, agent_id: str, project_dir: Path) -> dict:
-    """Generate MCP config that spawns a stdio server for this agent."""
-    return {
-        "mcpServers": {
-            "cord": {
-                "command": "uv",
-                "args": [
-                    "run",
-                    "--directory", str(project_dir.resolve()),
-                    "cord-mcp-server",
-                    "--db-path", str(db_path.resolve()),
-                    "--agent-id", agent_id,
-                ],
-            }
-        }
-    }
+from cord.runtime.harness.base import MCP_TOOLS, AgentLaunchRequest, generate_mcp_config
+from cord.runtime.harness.claude import ClaudeHarness
 
 
 def launch_agent(
@@ -48,33 +18,15 @@ def launch_agent(
     model: str = "sonnet",
     project_dir: Path | None = None,
 ) -> subprocess.Popen[str]:
-    """Launch a claude CLI process for a node."""
+    """Launch a Claude subprocess for a node."""
     proj = project_dir or db_path.parent
-    mcp_config = generate_mcp_config(db_path, node_id, proj)
-
-    config_dir = db_path.parent / ".cord"
-    config_dir.mkdir(parents=True, exist_ok=True)
-    config_path = config_dir / f"mcp-{node_id.lstrip('#')}.json"
-    config_path.write_text(json.dumps(mcp_config, indent=2))
-
-    cmd = [
-        "claude",
-        "-p", prompt,
-        "--model", model,
-        "--mcp-config", str(config_path),
-        "--allowedTools", " ".join(MCP_TOOLS),
-        "--dangerously-skip-permissions",
-        "--max-budget-usd", str(max_budget_usd),
-    ]
-
-    cwd = str(work_dir) if work_dir else str(proj)
-
-    process = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        cwd=cwd,
+    request = AgentLaunchRequest(
+        db_path=db_path,
+        node_id=node_id,
+        prompt=prompt,
+        work_dir=work_dir,
+        max_budget_usd=max_budget_usd,
+        model=model,
+        project_dir=proj,
     )
-
-    return process
+    return ClaudeHarness().launch(request)

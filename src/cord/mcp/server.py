@@ -1,6 +1,6 @@
 """MCP server for cord — stdio transport, one per agent.
 
-Each claude CLI spawns its own instance via the MCP config.
+Each agent CLI subprocess spawns its own instance via the MCP config.
 State is shared through SQLite (WAL mode for concurrent access).
 """
 
@@ -75,8 +75,12 @@ def read_node(node_id: str) -> str:
 
 
 @mcp.tool()
-def spawn(goal: str, prompt: str = "", returns: str = "text",
-          blocked_by: list[str] | None = None) -> str:
+def spawn(
+    goal: str,
+    prompt: str = "",
+    returns: str = "text",
+    blocked_by: list[str] | None = None,
+) -> str:
     """Create a spawned child node under your node.
     Use blocked_by to declare dependencies on other node IDs (e.g. ['#2', '#3'])."""
     db = _get_db()
@@ -92,8 +96,12 @@ def spawn(goal: str, prompt: str = "", returns: str = "text",
 
 
 @mcp.tool()
-def fork(goal: str, prompt: str = "", returns: str = "text",
-         blocked_by: list[str] | None = None) -> str:
+def fork(
+    goal: str,
+    prompt: str = "",
+    returns: str = "text",
+    blocked_by: list[str] | None = None,
+) -> str:
     """Create a forked child node (inherits parent context) under your node.
     Use blocked_by to declare dependencies on other node IDs."""
     db = _get_db()
@@ -119,8 +127,9 @@ def complete(result: str = "") -> str:
 
 
 @mcp.tool()
-def ask(question: str, options: list[str] | None = None,
-        default: str | None = None) -> str:
+def ask(
+    question: str, options: list[str] | None = None, default: str | None = None
+) -> str:
     """Create an ask node to get input from a human or parent agent."""
     db = _get_db()
     prompt_text = question
@@ -164,11 +173,13 @@ def _check_subtree(db: CordDB, node_id: str) -> str | None:
     if not node:
         return json.dumps({"error": f"Node {node_id} not found"})
     if agent_id and not _is_descendant(db, agent_id, node_id):
-        return json.dumps({
-            "error": f"Node {node_id} is not in your subtree. "
-            "You can only modify your own descendants. "
-            "Use ask() to request the parent to do it."
-        })
+        return json.dumps(
+            {
+                "error": f"Node {node_id} is not in your subtree. "
+                "You can only modify your own descendants. "
+                "Use ask() to request the parent to do it."
+            }
+        )
     return None
 
 
@@ -180,7 +191,11 @@ def pause(node_id: str) -> str:
         return err
     node = db.get_node(node_id)
     if node["status"] != "active":
-        return json.dumps({"error": f"Node {node_id} is {node['status']}, not active. Only active nodes can be paused."})
+        return json.dumps(
+            {
+                "error": f"Node {node_id} is {node['status']}, not active. Only active nodes can be paused."
+            }
+        )
     db.update_status(node_id, "paused")
     return json.dumps({"paused": node_id})
 
@@ -193,7 +208,11 @@ def resume(node_id: str) -> str:
         return err
     node = db.get_node(node_id)
     if node["status"] != "paused":
-        return json.dumps({"error": f"Node {node_id} is {node['status']}, not paused. Only paused nodes can be resumed."})
+        return json.dumps(
+            {
+                "error": f"Node {node_id} is {node['status']}, not paused. Only paused nodes can be resumed."
+            }
+        )
     db.update_status(node_id, "pending")
     return json.dumps({"resumed": node_id})
 
@@ -206,9 +225,15 @@ def modify(node_id: str, goal: str | None = None, prompt: str | None = None) -> 
         return err
     node = db.get_node(node_id)
     if node["status"] not in ("pending", "paused"):
-        return json.dumps({"error": f"Node {node_id} is {node['status']}. Only pending or paused nodes can be modified."})
+        return json.dumps(
+            {
+                "error": f"Node {node_id} is {node['status']}. Only pending or paused nodes can be modified."
+            }
+        )
     if goal is None and prompt is None:
-        return json.dumps({"error": "Provide at least one of goal or prompt to modify."})
+        return json.dumps(
+            {"error": "Provide at least one of goal or prompt to modify."}
+        )
     db.modify_node(node_id, goal=goal, prompt=prompt)
     updated = db.get_node(node_id)
     return json.dumps({"modified": node_id, "goal": updated["goal"]})
