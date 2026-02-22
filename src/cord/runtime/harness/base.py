@@ -7,6 +7,7 @@ import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
+import shutil
 
 
 MCP_TOOLS = [
@@ -114,3 +115,11 @@ def generate_mcp_config(db_path: Path, agent_id: str, project_dir: Path) -> dict
         }
     }
 
+
+def require_binary(binary_name: str, runtime_name: str) -> None:
+    """Ensure a runtime CLI binary is available on PATH."""
+    if shutil.which(binary_name) is None:
+        raise RuntimeError(
+            f"Runtime '{runtime_name}' requires '{binary_name}' on PATH. "
+            f"Install/authenticate {binary_name} and retry."
+        )

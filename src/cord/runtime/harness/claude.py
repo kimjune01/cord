@@ -10,6 +10,7 @@ from cord.runtime.harness.base import (
     RuntimeCapabilities,
     generate_mcp_config,
     node_file_slug,
+    require_binary,
     write_json_file,
 )
 
@@ -23,6 +24,10 @@ class ClaudeAdapter(RuntimeAdapter):
         supports_allowed_tools=True,
         requires_mcp_config=True,
     )
+
+    def preflight(self, request: AgentLaunchRequest) -> None:
+        del request
+        require_binary("claude", self.name)
 
     def plan(self, request: AgentLaunchRequest) -> LaunchPlan:
         proj = request.project_dir
@@ -50,4 +55,3 @@ class ClaudeAdapter(RuntimeAdapter):
 
         cwd = request.work_dir or proj
         return LaunchPlan(cmd=cmd, cwd=cwd)
-

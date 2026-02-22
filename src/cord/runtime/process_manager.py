@@ -1,4 +1,4 @@
-"""Track and manage Claude CLI subprocess lifecycle."""
+"""Track and manage agent subprocess lifecycle."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ class ProcessInfo:
 
 
 class ProcessManager:
-    """Manages claude CLI subprocesses for active nodes."""
+    """Manages subprocesses for active nodes."""
 
     def __init__(self) -> None:
         self._processes: dict[str, ProcessInfo] = {}
@@ -25,19 +25,22 @@ class ProcessManager:
         """Register a subprocess for a node."""
         self._processes[node_id] = ProcessInfo(node_id=node_id, process=process)
 
-    def poll_completions(self) -> list[tuple[str, int, str]]:
+    def poll_completions(self) -> list[tuple[str, int, str, str]]:
         """Poll all registered processes for completions.
 
-        Returns list of (node_id, return_code, stdout) for completed processes.
+        Returns list of (node_id, return_code, stdout, stderr) for completed processes.
         """
         completed = []
         for node_id, info in list(self._processes.items()):
             rc = info.process.poll()
             if rc is not None:
                 stdout = ""
+                stderr = ""
                 if info.process.stdout:
                     stdout = info.process.stdout.read() or ""
-                completed.append((node_id, rc, stdout))
+                if info.process.stderr:
+                    stderr = info.process.stderr.read() or ""
+                completed.append((node_id, rc, stdout, stderr))
                 del self._processes[node_id]
         return completed
 

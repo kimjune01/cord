@@ -43,7 +43,11 @@ No workflow was hardcoded. The agent built this tree at runtime.
 git clone https://github.com/kimjune01/cord.git
 cd cord
 uv sync
+# optional runtime extras
+uv sync --extra amp
 ```
+
+If published as a package, the same extra is available as `cord[amp]`.
 
 ## Usage
 
@@ -143,7 +147,6 @@ src/cord/
     prompts.py              # Prompt assembly for agents
     runtime/
         engine.py           # Main loop, TUI
-        dispatcher.py       # Compatibility launch wrapper
         harness/            # Runtime adapter registry + implementations
         codex_app_server_worker.py  # JSON-RPC client for Codex App Server
         process_manager.py  # Track subprocesses

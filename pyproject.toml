@@ -1,13 +1,16 @@
 [project]
 name = "cord"
 version = "0.1.0"
-description = "A coordination protocol for trees of Claude Code agents"
+description = "A coordination protocol for trees of coding agents"
 readme = "README.md"
 authors = [
     { name = "June Kim", email = "kimjune01@gmail.com" }
 ]
 requires-python = ">=3.12"
 dependencies = ["mcp>=1.26.0"]
+
+[project.optional-dependencies]
+amp = []
 
 [project.scripts]
 cord = "cord.cli:main"

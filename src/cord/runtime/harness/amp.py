@@ -16,6 +16,7 @@ from cord.runtime.harness.base import (
     RuntimeCapabilities,
     generate_mcp_config,
     node_file_slug,
+    require_binary,
     write_json_file,
 )
 
@@ -33,6 +34,10 @@ class AmpAdapter(RuntimeAdapter):
     def __init__(self) -> None:
         self._warned_model = False
         self._warned_budget = False
+
+    def preflight(self, request: AgentLaunchRequest) -> None:
+        del request
+        require_binary("amp", self.name)
 
     def plan(self, request: AgentLaunchRequest) -> LaunchPlan:
         self._warn_option_gaps(request)
@@ -115,4 +120,3 @@ class AmpAdapter(RuntimeAdapter):
             return {}
 
         return payload
-

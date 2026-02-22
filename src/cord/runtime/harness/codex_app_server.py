@@ -10,6 +10,7 @@ from cord.runtime.harness.base import (
     RuntimeAdapter,
     RuntimeCapabilities,
     node_file_slug,
+    require_binary,
 )
 
 
@@ -35,6 +36,10 @@ class CodexAppServerAdapter(RuntimeAdapter):
         supports_allowed_tools=False,
         requires_mcp_config=False,
     )
+
+    def preflight(self, request: AgentLaunchRequest) -> None:
+        del request
+        require_binary("codex", self.name)
 
     def plan(self, request: AgentLaunchRequest) -> LaunchPlan:
         proj = request.project_dir
@@ -64,4 +69,3 @@ class CodexAppServerAdapter(RuntimeAdapter):
             cmd.extend(["--model", request.model])
 
         return LaunchPlan(cmd=cmd, cwd=(request.work_dir or proj))
-
