@@ -133,7 +133,7 @@ src/cord/
         server.py           # MCP tools (one server per agent)
 ```
 
-~1000 lines of source. SQLite is the only dependency beyond the MCP library.
+~1020 lines of source. SQLite is the only dependency beyond the MCP library.
 
 ## Tests
 
