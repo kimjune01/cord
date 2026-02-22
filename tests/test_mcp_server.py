@@ -24,8 +24,8 @@ def setup_server(db, tmp_path):
 class TestReadTree:
     def test_returns_json(self, setup_server, db):
         server, root_id = setup_server
-        db.create_node("spawn", "Research", parent_id=root_id)
-        db.create_node("spawn", "Writing", parent_id=root_id)
+        db.create_node("task", "Research", parent_id=root_id)
+        db.create_node("task", "Writing", parent_id=root_id)
         data = json.loads(server.read_tree())
         assert data["id"] == root_id
         assert data["status"] == "active"
@@ -35,7 +35,7 @@ class TestReadTree:
 class TestReadNode:
     def test_existing(self, setup_server, db):
         server, root_id = setup_server
-        child = db.create_node("spawn", "Research", parent_id=root_id)
+        child = db.create_node("task", "Research", parent_id=root_id)
         data = json.loads(server.read_node(child))
         assert data["id"] == child
         assert data["goal"] == "Research"
@@ -46,55 +46,53 @@ class TestReadNode:
         assert "error" in data
 
 
-class TestSpawn:
+class TestCreate:
     def test_creates_child(self, setup_server, db):
         server, root_id = setup_server
-        result = json.loads(server.spawn("New task", "Do stuff", "text"))
+        result = json.loads(server.create("New task", "Do stuff", "text"))
         assert "created" in result
         child = db.get_node(result["created"])
         assert child["goal"] == "New task"
         assert child["parent_id"] == root_id
+        assert child["node_type"] == "task"
 
-    def test_blocked_by(self, setup_server, db):
+    def test_with_needs(self, setup_server, db):
         server, root_id = setup_server
-        a = json.loads(server.spawn("A"))["created"]
-        b = json.loads(server.spawn("B", blocked_by=[a]))["created"]
+        a = json.loads(server.create("A"))["created"]
+        b = json.loads(server.create("B", needs=[a]))["created"]
         node = db.get_node(b)
-        assert a in node["blocked_by"]
+        assert a in node["needs"]
 
-
-class TestFork:
-    def test_creates_fork(self, setup_server, db):
+    def test_multiple_needs(self, setup_server, db):
         server, root_id = setup_server
-        dep = json.loads(server.spawn("Dep task"))["created"]
-        result = json.loads(server.fork("Analysis", "Analyze", "structured", [dep]))
-        child = db.get_node(result["created"])
-        assert child["node_type"] == "fork"
+        a = json.loads(server.create("A"))["created"]
+        b = json.loads(server.create("B"))["created"]
+        c = json.loads(server.create("C", needs=[a, b]))["created"]
+        node = db.get_node(c)
+        assert set(node["needs"]) == {a, b}
 
 
 class TestStop:
     def test_stop_own_child(self, setup_server, db):
         server, root_id = setup_server
-        child = db.create_node("spawn", "A", parent_id=root_id)
+        child = db.create_node("task", "A", parent_id=root_id)
         result = json.loads(server.stop(child))
         assert result["cancelled"] == child
         assert db.get_node(child)["status"] == "cancelled"
 
     def test_stop_own_grandchild(self, setup_server, db):
         server, root_id = setup_server
-        child = db.create_node("spawn", "A", parent_id=root_id)
-        grandchild = db.create_node("spawn", "B", parent_id=child)
+        child = db.create_node("task", "A", parent_id=root_id)
+        grandchild = db.create_node("task", "B", parent_id=child)
         result = json.loads(server.stop(grandchild))
         assert result["cancelled"] == grandchild
 
     def test_stop_sibling_rejected(self, setup_server, db):
         server, root_id = setup_server
-        # root_id is agent. Create a sibling subtree under a shared parent.
         parent = db.create_node("goal", "Parent", status="active")
         db.update_status(root_id, "active")
-        # agent_id is root_id (#1). Create another branch not under #1.
-        sibling = db.create_node("spawn", "Sibling", parent_id=parent)
-        sibling_child = db.create_node("spawn", "Target", parent_id=sibling)
+        sibling = db.create_node("task", "Sibling", parent_id=parent)
+        sibling_child = db.create_node("task", "Target", parent_id=sibling)
         result = json.loads(server.stop(sibling_child))
         assert "error" in result
         assert "not in your subtree" in result["error"]
@@ -109,14 +107,14 @@ class TestStop:
 class TestPause:
     def test_pause_active(self, setup_server, db):
         server, root_id = setup_server
-        child = db.create_node("spawn", "A", parent_id=root_id, status="active")
+        child = db.create_node("task", "A", parent_id=root_id, status="active")
         result = json.loads(server.pause(child))
         assert result["paused"] == child
         assert db.get_node(child)["status"] == "paused"
 
     def test_pause_pending_rejected(self, setup_server, db):
         server, root_id = setup_server
-        child = db.create_node("spawn", "A", parent_id=root_id, status="pending")
+        child = db.create_node("task", "A", parent_id=root_id, status="pending")
         result = json.loads(server.pause(child))
         assert "error" in result
         assert "not active" in result["error"]
@@ -124,7 +122,7 @@ class TestPause:
     def test_pause_sibling_rejected(self, setup_server, db):
         server, root_id = setup_server
         parent = db.create_node("goal", "Parent", status="active")
-        sibling = db.create_node("spawn", "Sibling", parent_id=parent, status="active")
+        sibling = db.create_node("task", "Sibling", parent_id=parent, status="active")
         result = json.loads(server.pause(sibling))
         assert "error" in result
         assert "not in your subtree" in result["error"]
@@ -133,14 +131,14 @@ class TestPause:
 class TestResume:
     def test_resume_paused(self, setup_server, db):
         server, root_id = setup_server
-        child = db.create_node("spawn", "A", parent_id=root_id, status="paused")
+        child = db.create_node("task", "A", parent_id=root_id, status="paused")
         result = json.loads(server.resume(child))
         assert result["resumed"] == child
         assert db.get_node(child)["status"] == "pending"
 
     def test_resume_active_rejected(self, setup_server, db):
         server, root_id = setup_server
-        child = db.create_node("spawn", "A", parent_id=root_id, status="active")
+        child = db.create_node("task", "A", parent_id=root_id, status="active")
         result = json.loads(server.resume(child))
         assert "error" in result
         assert "not paused" in result["error"]
@@ -149,7 +147,7 @@ class TestResume:
 class TestModify:
     def test_modify_pending_goal(self, setup_server, db):
         server, root_id = setup_server
-        child = db.create_node("spawn", "Old goal", parent_id=root_id, status="pending")
+        child = db.create_node("task", "Old goal", parent_id=root_id, status="pending")
         result = json.loads(server.modify(child, goal="New goal"))
         assert result["modified"] == child
         assert result["goal"] == "New goal"
@@ -157,28 +155,28 @@ class TestModify:
 
     def test_modify_paused_prompt(self, setup_server, db):
         server, root_id = setup_server
-        child = db.create_node("spawn", "A", parent_id=root_id, status="paused", prompt="old")
+        child = db.create_node("task", "A", parent_id=root_id, status="paused", prompt="old")
         result = json.loads(server.modify(child, prompt="new instructions"))
         assert result["modified"] == child
         assert db.get_node(child)["prompt"] == "new instructions"
 
     def test_modify_active_rejected(self, setup_server, db):
         server, root_id = setup_server
-        child = db.create_node("spawn", "A", parent_id=root_id, status="active")
+        child = db.create_node("task", "A", parent_id=root_id, status="active")
         result = json.loads(server.modify(child, goal="X"))
         assert "error" in result
 
     def test_modify_sibling_rejected(self, setup_server, db):
         server, root_id = setup_server
         parent = db.create_node("goal", "Parent", status="active")
-        sibling = db.create_node("spawn", "Sibling", parent_id=parent, status="pending")
+        sibling = db.create_node("task", "Sibling", parent_id=parent, status="pending")
         result = json.loads(server.modify(sibling, goal="X"))
         assert "error" in result
         assert "not in your subtree" in result["error"]
 
     def test_modify_nothing_rejected(self, setup_server, db):
         server, root_id = setup_server
-        child = db.create_node("spawn", "A", parent_id=root_id, status="pending")
+        child = db.create_node("task", "A", parent_id=root_id, status="pending")
         result = json.loads(server.modify(child))
         assert "error" in result
         assert "at least one" in result["error"]

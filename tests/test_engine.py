@@ -21,7 +21,7 @@ class TestEngineBasics:
 
     def test_handle_completion_success(self, engine):
         root = engine.db.create_node("goal", "Root", status="active")
-        child = engine.db.create_node("spawn", "Task", parent_id=root, status="active")
+        child = engine.db.create_node("task", "Task", parent_id=root, status="active")
         engine._handle_completion(child, 0, "result text")
         node = engine.db.get_node(child)
         assert node["status"] == "complete"
@@ -29,7 +29,7 @@ class TestEngineBasics:
 
     def test_handle_completion_already_completed_via_mcp(self, engine):
         root = engine.db.create_node("goal", "Root", status="active")
-        child = engine.db.create_node("spawn", "Task", parent_id=root, status="active")
+        child = engine.db.create_node("task", "Task", parent_id=root, status="active")
         # Simulate agent calling complete() via MCP before process exits
         engine.db.complete_node(child, "MCP result")
         engine._handle_completion(child, 0, "stdout garbage")
@@ -39,17 +39,15 @@ class TestEngineBasics:
 
     def test_handle_completion_failure(self, engine):
         root = engine.db.create_node("goal", "Root", status="active")
-        child = engine.db.create_node("spawn", "Task", parent_id=root, status="active")
+        child = engine.db.create_node("task", "Task", parent_id=root, status="active")
         engine._handle_completion(child, 1, "error")
         node = engine.db.get_node(child)
         assert node["status"] == "failed"
 
     def test_synthesis_triggered(self, engine):
         root = engine.db.create_node("goal", "Root", status="complete")
-        child = engine.db.create_node("spawn", "Task", parent_id=root, status="active")
+        child = engine.db.create_node("task", "Task", parent_id=root, status="active")
         engine.db.complete_node(child, "child result")
-        # _check_synthesis would relaunch parent, but we can't test the process launch
-        # without mocking. Just verify the logic detects all children done.
         children = engine.db.get_children(root)
         all_done = all(c["status"] in ("complete", "failed", "cancelled") for c in children)
         assert all_done

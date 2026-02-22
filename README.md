@@ -12,19 +12,19 @@ $ cord run "Build a competitive landscape report for fintech" --budget 5.0
 cord run
 
   ● #1 [active] GOAL Build a competitive landscape report for fintech
-    ✓ #2 [complete] SPAWN Identify top fintech competitors
+    ✓ #2 [complete] TASK Identify top fintech competitors
       result: Task complete. JSON array with top 10 fintech companies...
-    ✓ #3 [complete] SPAWN Research fintech industry trends
+    ✓ #3 [complete] TASK Research fintech industry trends
       result: Task complete. Compiled trends across regulatory, AI...
-    ● #4 [active] FORK Deep competitive analysis
-      blocked-by: #2, #3
-    ○ #5 [pending] SPAWN Write executive report
-      blocked-by: #4
+    ● #4 [active] TASK Deep competitive analysis
+      needs: #2, #3
+    ○ #5 [pending] TASK Write executive report
+      needs: #4
 
   running: #1, #4
 ```
 
-The root agent decided to split the work into 4 tasks. #2 and #3 ran in parallel. #4 is a `fork` — it gets the results from both research tasks injected as context. #5 waits for #4. When everything completes, #1 relaunches to synthesize the final report.
+The root agent decided to split the work into 4 tasks. #2 and #3 ran in parallel. #4 needs results from both research tasks — their full results are injected into its prompt. #5 waits for #4. When everything completes, #1 relaunches to synthesize the final report.
 
 No workflow was hardcoded. The agent built this tree at runtime.
 
@@ -72,8 +72,8 @@ You                    Engine                 Agents
  │                       │  create root in DB   │
  │                       │  launch root agent   │
  │                       │─────────────────────>│
- │                       │                      │ spawn("#2", ...)
- │                       │                      │ spawn("#3", ...)
+ │                       │                      │ create("#2", ...)
+ │                       │                      │ create("#3", ...)
  │                       │                      │ complete("decomposed")
  │                       │<─────────────────────│
  │                       │                      │
@@ -96,8 +96,7 @@ Each agent gets MCP tools to coordinate:
 
 | Tool | What it does |
 |------|-------------|
-| `spawn(goal, prompt, returns, blocked_by)` | Create a child task |
-| `fork(goal, prompt, returns, blocked_by)` | Create a child that inherits sibling context |
+| `create(goal, prompt, returns, needs)` | Create a child task |
 | `complete(result)` | Mark yourself done with a result |
 | `read_tree()` | See the full coordination tree |
 | `read_node(node_id)` | See a single node's details |
@@ -111,9 +110,9 @@ Agents don't know they're in a coordination tree. They see MCP tools and use the
 
 ## Key concepts
 
-**spawn vs fork** — both create children. `spawn` gives the child a clean slate (just its prompt). `fork` injects completed sibling results into the child's prompt. Use spawn for independent tasks, fork for analysis that builds on prior work.
+**needs** — when creating a child task, list the node IDs whose results it depends on. The engine won't launch the child until all needed nodes complete. Their full results are injected into the child's prompt. This is the single context-engineering primitive: you choose which results flow to each child.
 
-**blocked-by** — a node lists other node IDs it depends on. The engine won't launch it until all dependencies are complete. Agents set this when calling `spawn()` or `fork()`.
+**Context rot** — if a child would need results from many nodes, create an intermediate task to synthesize them first. Each level of tree depth is a natural compression boundary. Prefer deeper trees over wide fan-ins.
 
 **Two-phase execution** — an agent decomposes (creates children, calls `complete`). The engine waits for children. When all children finish, the engine relaunches the parent with a synthesis prompt that includes children's results.
 
@@ -134,7 +133,7 @@ src/cord/
         server.py           # MCP tools (one server per agent)
 ```
 
-~550 lines of source. SQLite is the only dependency beyond the MCP library.
+~1000 lines of source. SQLite is the only dependency beyond the MCP library.
 
 ## Tests
 
@@ -144,7 +143,7 @@ uv run pytest tests/ -v   # 49 tests
 
 ## Experiments
 
-[`experiments/behavior_compare.py`](experiments/behavior_compare.py) runs 8 behavioral tests against both Opus and Sonnet via Claude Code CLI, comparing how each model uses the Cord MCP tools. Key finding: both models produce identical coordination structures (spawn/fork/blocked_by), and when the server rejects an unauthorized action, both escalate via `ask()` instead of finding workarounds.
+[`experiments/behavior_compare.py`](experiments/behavior_compare.py) runs 8 behavioral tests against both Opus and Sonnet via Claude Code CLI, comparing how each model uses the Cord MCP tools. The earlier behavior tests (see [BEHAVIOR.md](BEHAVIOR.md)) were run against the v0.3 API which used separate `spawn`/`fork` primitives — these have since been unified into `create` with explicit `needs`.
 
 The `pause`, `resume`, and `modify` tools were added because Claude independently tried to call them before they existed ([BEHAVIOR.md](BEHAVIOR.md) test 13). We built what the model already expected.
 
@@ -162,7 +161,7 @@ Each agent subprocess has its own Claude API budget (set via `--budget`). A simp
 
 ## Alternative implementations
 
-This repo is one implementation of the Cord protocol. The protocol itself — five primitives, dependency resolution, authority scoping, two-phase lifecycle — is independent of the backing store, transport, and agent runtime. You could implement Cord with Redis pub/sub, Postgres for multi-machine coordination, HTTP/SSE instead of stdio MCP, or non-Claude agents. See [RFC.md](RFC.md) for the full protocol specification.
+This repo is one implementation of the Cord protocol. The protocol itself — four primitives, dependency resolution, authority scoping, two-phase lifecycle — is independent of the backing store, transport, and agent runtime. You could implement Cord with Redis pub/sub, Postgres for multi-machine coordination, HTTP/SSE instead of stdio MCP, or non-Claude agents. See [RFC.md](RFC.md) for the full protocol specification.
 
 ## License
 

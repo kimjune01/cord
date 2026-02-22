@@ -3,7 +3,7 @@
     Status:     Draft
     Author:     June Kim
     Created:    2026-02-18
-    Version:    0.3.0
+    Version:    0.4.0
 
 ## Abstract
 
@@ -13,11 +13,12 @@ processes — execute tasks, create subtasks, and return typed
 results. A SQLite database is the shared coordination state.
 Agents interact with it through MCP tools.
 
-The protocol introduces five primitives (`goal`, `spawn`,
-`fork`, `serial`, `ask`). The key novel contribution is the
-distinction between `spawn` (scoped context) and `fork`
-(inherited context) as a first-class context-flow primitive
-that determines an agent's relationship to its parent.
+The protocol introduces four primitives (`goal`, `task`,
+`serial`, `ask`) and a single context-flow mechanism: `needs`.
+When creating a child task, the parent lists which completed
+nodes' results should be injected into the child's prompt.
+This replaces the earlier `spawn`/`fork` distinction with
+explicit context selection.
 
 ## 1. Motivation
 
@@ -36,8 +37,8 @@ Existing agent orchestration systems fall into two categories:
 
 No existing system provides:
 
-- A distinction between **scoped** and **inherited** context as
-  a first-class primitive.
+- **Explicit context selection** — the parent decides which
+  results flow to each child via a single `needs` parameter.
 - **Native elicitation** — agents asking humans, parents, or
   children as part of the coordination structure.
 - **Runtime self-modification** — agents adding subtasks and
@@ -94,7 +95,7 @@ for concurrent access). The database contains two tables:
 
 - **nodes** — all nodes in the coordination tree with their
   type, goal, status, prompt, result, and parent reference.
-- **dependencies** — blocked-by relationships between nodes.
+- **dependencies** — `needs` relationships between nodes.
 
 Node IDs are auto-generated integers, displayed as `#1`, `#2`, etc.
 
@@ -106,61 +107,53 @@ The root goal can be provided as:
 - A **file** — `cord run plan.md` (file contents become the goal)
 
 The root agent decomposes the goal into subtasks by calling
-`spawn()` and `fork()` via MCP tools. There is no input file
-format — agents build the tree programmatically.
+`create()` via MCP tools. There is no input file format —
+agents build the tree programmatically.
 
 ### 3.3 Nodes
 
 Every entry in the coordination tree is a node. Every node has:
 
 - **ID** — auto-generated, unique (e.g. `#1`, `#2`). Never reused.
-- **Type** — one of the five primitives (Section 4).
+- **Type** — one of the four primitives (Section 4).
 - **Goal** — short human-readable description.
 - **Prompt** — full instructions for the executing agent.
 - **Status** — current lifecycle state (Section 6).
 - **Returns** — expected result type (Section 5).
 - **Result** — output from the agent on completion.
 - **Parent** — reference to parent node (NULL for root).
+- **Needs** — list of node IDs whose results are required.
 - **Children** — derived from parent references.
 
 ## 4. Primitives
 
-The protocol has five node types.
+The protocol has four node types.
 
 ### 4.1 `goal`
 
 The root-level objective. A coordination tree has exactly one
 root goal. The goal decomposes into children via agent action.
 
-### 4.2 `spawn`
+### 4.2 `task`
 
-Creates a child task with **scoped context**. The child receives
-only explicitly passed inputs (its prompt and dependency results).
-
-Properties:
-
-- Child gets clean context — only what is in its prompt.
-- On CANCEL: terminates. Cheap to restart.
-- No context caching needed.
-
-### 4.3 `fork`
-
-Creates a child task with **inherited context**. The child gets
-results from all completed siblings injected into its prompt,
-simulating context inheritance.
+Creates a child task. The parent specifies which completed
+nodes' results should be injected into the child's prompt
+via the `needs` parameter.
 
 Properties:
 
-- Child gets sibling results injected into prompt.
-- On CANCEL: terminates.
-- More context means higher cost.
+- `needs` controls both execution ordering and context.
+  The task won't start until all needed nodes complete.
+- Full results from needed nodes are injected into the prompt.
+- If no `needs` are specified, the task runs immediately with
+  only its own prompt.
 
-### 4.4 `serial`
+### 4.3 `serial`
 
 An ordered sequence of children. Each child starts only after the
 previous one completes. Dependencies are implicit by ordering.
 
-### 4.5 `ask`
+### 4.4 `ask`
 
 Elicitation primitive. An agent requests input from a target
 (human, parent, or children).
@@ -190,7 +183,7 @@ When a node completes (via the `complete` MCP tool), the engine:
 
 1. Stores the result in the database.
 2. Updates the node status to `complete`.
-3. Checks if any blocked-by dependencies are now satisfied
+3. Checks if any `needs` dependencies are now satisfied
    and dispatches newly unblocked nodes.
 4. Checks if all siblings are done; if so, relaunches the
    parent for synthesis.
@@ -223,27 +216,34 @@ relaunch). This replaces the destructive stop-and-respawn pattern.
 
 Every transition is written to the database by the engine.
 
-## 7. Fork vs Spawn
+## 7. Context Flow
 
-The distinction between `fork` and `spawn` is a context-flow
-primitive, not a concurrency primitive. It determines what
-context the agent receives.
+Context flows through the tree via the `needs` parameter. When
+creating a child task, the parent lists which nodes' results
+should be injected into the child's prompt.
 
-|                        | Spawn                 | Fork                         |
-|------------------------|-----------------------|------------------------------|
-| Mental model           | Contractor            | Team member                  |
-| Initial context        | Scoped inputs only    | Sibling results injected     |
-| Cost to restart        | Low                   | Higher (more context)        |
-| Typical use            | Independent task       | Analysis needing prior work  |
+This is a **selection** mechanism, not a compression mechanism.
+The child receives the full results from each needed node. The
+parent decides which results are relevant — the child gets
+exactly what it needs, nothing more.
 
-Fork and spawn are orthogonal to concurrency. Dependencies
-(`blocked-by`) control timing. `fork`/`spawn` controls what
-the child knows.
+### 7.1 Context Rot
+
+If a child would need results from many nodes, the parent should
+create an intermediate task to synthesize them first. Each level
+of tree depth is a natural compression boundary:
+
+    #2 "Research A"     ──┐
+    #3 "Research B"     ──┼──> #6 "Synthesize research"  ──> #7 "Final report"
+    #4 "Research C"     ──┘
+
+Prefer deeper trees over wide fan-ins. Depth compresses.
+Width parallelizes.
 
 ## 8. Concurrency
 
 Children under a node are **concurrent by default**. Dependencies
-between siblings are declared with `blocked-by` (a list of node
+between siblings are declared with `needs` (a list of node
 IDs that must complete before this node can start).
 
 The engine finds ready nodes by querying the database for
@@ -285,8 +285,7 @@ scoped to its node ID.
 |----------------------------------|----------------------------------|
 | `read_tree()`                    | Returns full coordination tree   |
 | `read_node(node_id)`            | Returns a single node's detail   |
-| `spawn(goal, prompt, ...)`      | Create a spawned child node      |
-| `fork(goal, prompt, ...)`       | Create a forked child node       |
+| `create(goal, prompt, ...)`     | Create a child task              |
 | `complete(result)`              | Mark own node complete            |
 | `stop(node_id)`                 | Cancel a node in own subtree      |
 | `pause(node_id)`                | Pause an active node in subtree   |
@@ -327,9 +326,9 @@ and manages these processes.
 ### 11.2 Self-Decomposition
 
 An agent MAY decide at runtime to decompose its work. It
-reads its goal, judges the complexity, and calls `spawn()`
-or `fork()` to create subtasks. The tree grows organically
-based on agent judgment, not only from the initial goal.
+reads its goal, judges the complexity, and calls `create()`
+to make subtasks. The tree grows organically based on agent
+judgment, not only from the initial goal.
 
 ### 11.3 Two-Phase Execution
 
@@ -360,7 +359,7 @@ ancestor from root to self — into every agent's prompt:
 1. Engine finds a node ready to execute (status `pending`,
    dependencies satisfied).
 2. Engine constructs the agent prompt: identity + goal chain
-   + dependency results + node prompt + MCP instructions.
+   + needed results + node prompt + MCP instructions.
 3. Engine launches a Claude Code process with the prompt
    and a per-agent MCP config.
 4. The agent works — calling MCP tools, creating subtasks.
@@ -401,11 +400,11 @@ coordination tree with colored status indicators:
     cord run
 
       ● #1 [active] GOAL Competitive landscape report
-        ✓ #2 [complete] SPAWN Identify competitors
+        ✓ #2 [complete] TASK Identify competitors
           result: Task complete...
-        ● #3 [active] SPAWN Research trends
-        ○ #4 [pending] FORK Deep analysis
-          blocked-by: #2, #3
+        ● #3 [active] TASK Research trends
+        ○ #4 [pending] TASK Deep analysis
+          needs: #2, #3
 
       running: #1, #3
 
@@ -427,11 +426,11 @@ coordination tree with colored status indicators:
    The engine is stateless. A crashed engine recovers by
    re-reading the database.
 
-2. **Five primitives.** `goal`, `spawn`, `fork`, `serial`, `ask`.
+2. **Four primitives.** `goal`, `task`, `serial`, `ask`.
 
-3. **Fork vs spawn is about context, not concurrency.** Fork
-   inherits sibling context. Spawn scopes. Dependencies
-   control timing.
+3. **`needs` is the context lever.** The parent selects which
+   results flow to each child. Full results, no compression.
+   Depth compresses through synthesis. Width parallelizes.
 
 4. **Elicitation is native.** Agents can ask humans, parents, or
    children. Questions propagate up the tree.
@@ -449,7 +448,28 @@ coordination tree with colored status indicators:
 8. **Single machine.** Local SQLite. Concurrency bounded by
    machine capacity.
 
-## 15. Future Work
+## 15. Changelog
+
+### v0.4.0
+
+- Unified `spawn` and `fork` into a single `task` primitive.
+- Replaced `blocked_by` with `needs` — a single parameter that
+  controls both execution ordering and context injection.
+- Removed the fork context injection mechanism (automatic
+  sibling result injection). Context selection is now always
+  explicit via `needs`.
+- Added prompt guidance for context rot: prefer deeper trees
+  over wide fan-ins.
+
+### v0.3.0
+
+- Initial protocol specification with five primitives:
+  `goal`, `spawn`, `fork`, `serial`, `ask`.
+- `spawn` (scoped context) vs `fork` (inherited context) as
+  the key context-flow distinction.
+- `blocked_by` for dependency ordering.
+
+## 16. Future Work
 
 - **Web UI** — live observation via websocket, replacing TUI.
 - **MERGE signal** — notify an agent when a sibling completes.

@@ -244,9 +244,9 @@ class Engine:
             f"{dim}{node['node_type'].upper()}{reset} {node['goal']}"
         )
 
-        if node.get("blocked_by"):
-            deps = ", ".join(node["blocked_by"])
-            lines.append(f"  {prefix}  {dim}blocked-by: {deps}{reset}")
+        if node.get("needs"):
+            deps = ", ".join(node["needs"])
+            lines.append(f"  {prefix}  {dim}needs: {deps}{reset}")
 
         if node.get("result"):
             preview = node["result"][:60].replace("\n", " ")

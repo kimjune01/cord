@@ -10,8 +10,7 @@ from pathlib import Path
 MCP_TOOLS = [
     "mcp__cord__read_tree",
     "mcp__cord__read_node",
-    "mcp__cord__spawn",
-    "mcp__cord__fork",
+    "mcp__cord__create",
     "mcp__cord__ask",
     "mcp__cord__stop",
     "mcp__cord__complete",

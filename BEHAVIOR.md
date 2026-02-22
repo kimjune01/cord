@@ -3,6 +3,11 @@
 Results from 15 tests against a minimal Cord MCP server.
 Tested: Claude Code 2.1.37, 2026-02-18.
 
+> **Note:** These tests were run against the v0.3 API which used separate
+> `spawn`/`fork` primitives and `blocked_by`. The protocol has since been
+> unified into `create` with `needs` (v0.4). The behavioral observations
+> — self-decomposition, authority handling, error recovery — still apply.
+
 ## Summary
 
 | # | Test | Pass | Notes |

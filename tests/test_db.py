@@ -21,27 +21,27 @@ class TestCreateNode:
 
     def test_create_child(self, db):
         root = db.create_node("goal", "Root")
-        child = db.create_node("spawn", "Child", parent_id=root)
+        child = db.create_node("task", "Child", parent_id=root)
         assert child == "#2"
         node = db.get_node(child)
         assert node["parent_id"] == root
 
-    def test_create_with_deps(self, db):
+    def test_create_with_needs(self, db):
         root = db.create_node("goal", "Root")
-        a = db.create_node("spawn", "A", parent_id=root)
-        b = db.create_node("spawn", "B", parent_id=root, blocked_by=[a])
+        a = db.create_node("task", "A", parent_id=root)
+        b = db.create_node("task", "B", parent_id=root, needs=[a])
         node = db.get_node(b)
-        assert node["blocked_by"] == [a]
+        assert node["needs"] == [a]
 
     def test_create_with_prompt(self, db):
-        nid = db.create_node("spawn", "Task", prompt="Do the thing")
+        nid = db.create_node("task", "Task", prompt="Do the thing")
         node = db.get_node(nid)
         assert node["prompt"] == "Do the thing"
 
     def test_auto_increment_ids(self, db):
         a = db.create_node("goal", "A")
-        b = db.create_node("spawn", "B")
-        c = db.create_node("spawn", "C")
+        b = db.create_node("task", "B")
+        c = db.create_node("task", "C")
         assert a == "#1"
         assert b == "#2"
         assert c == "#3"
@@ -54,7 +54,7 @@ class TestUpdateStatus:
         assert db.get_node(nid)["status"] == "active"
 
     def test_complete_node(self, db):
-        nid = db.create_node("spawn", "Task")
+        nid = db.create_node("task", "Task")
         db.complete_node(nid, "Done!")
         node = db.get_node(nid)
         assert node["status"] == "complete"
@@ -64,8 +64,8 @@ class TestUpdateStatus:
 class TestGetTree:
     def test_tree_structure(self, db):
         root = db.create_node("goal", "Root")
-        db.create_node("spawn", "A", parent_id=root)
-        db.create_node("spawn", "B", parent_id=root)
+        db.create_node("task", "A", parent_id=root)
+        db.create_node("task", "B", parent_id=root)
         tree = db.get_tree()
         assert tree["node_id"] == root
         assert len(tree["children"]) == 2
@@ -74,8 +74,8 @@ class TestGetTree:
 
     def test_nested_tree(self, db):
         root = db.create_node("goal", "Root")
-        a = db.create_node("spawn", "A", parent_id=root)
-        db.create_node("spawn", "A1", parent_id=a)
+        a = db.create_node("task", "A", parent_id=root)
+        db.create_node("task", "A1", parent_id=a)
         tree = db.get_tree()
         assert len(tree["children"]) == 1
         assert len(tree["children"][0]["children"]) == 1
@@ -85,33 +85,33 @@ class TestGetTree:
 class TestFindReady:
     def test_no_deps_ready(self, db):
         root = db.create_node("goal", "Root", status="active")
-        db.create_node("spawn", "A", parent_id=root)
+        db.create_node("task", "A", parent_id=root)
         ready = db.find_ready_nodes()
         assert len(ready) == 1
         assert ready[0]["goal"] == "A"
 
     def test_blocked_not_ready(self, db):
         root = db.create_node("goal", "Root", status="active")
-        a = db.create_node("spawn", "A", parent_id=root)
-        db.create_node("spawn", "B", parent_id=root, blocked_by=[a])
+        a = db.create_node("task", "A", parent_id=root)
+        db.create_node("task", "B", parent_id=root, needs=[a])
         ready = db.find_ready_nodes()
         assert len(ready) == 1
         assert ready[0]["goal"] == "A"
 
     def test_dep_complete_unblocks(self, db):
         root = db.create_node("goal", "Root", status="active")
-        a = db.create_node("spawn", "A", parent_id=root)
-        db.create_node("spawn", "B", parent_id=root, blocked_by=[a])
+        a = db.create_node("task", "A", parent_id=root)
+        db.create_node("task", "B", parent_id=root, needs=[a])
         db.complete_node(a, "done")
         ready = db.find_ready_nodes()
         assert len(ready) == 1
         assert ready[0]["goal"] == "B"
 
-    def test_multiple_deps(self, db):
+    def test_multiple_needs(self, db):
         root = db.create_node("goal", "Root", status="active")
-        a = db.create_node("spawn", "A", parent_id=root)
-        b = db.create_node("spawn", "B", parent_id=root)
-        db.create_node("fork", "C", parent_id=root, blocked_by=[a, b])
+        a = db.create_node("task", "A", parent_id=root)
+        b = db.create_node("task", "B", parent_id=root)
+        db.create_node("task", "C", parent_id=root, needs=[a, b])
         # Only A complete — C not ready
         db.complete_node(a, "done")
         ready = db.find_ready_nodes()
@@ -148,23 +148,23 @@ class TestGoalChain:
 
     def test_nested_chain(self, db):
         root = db.create_node("goal", "Root")
-        child = db.create_node("spawn", "Child", parent_id=root)
+        child = db.create_node("task", "Child", parent_id=root)
         chain = db.get_goal_chain(child)
         assert chain == [(root, "Root"), (child, "Child")]
 
 
 class TestGetResults:
     def test_completed_results(self, db):
-        a = db.create_node("spawn", "A")
-        b = db.create_node("spawn", "B")
+        a = db.create_node("task", "A")
+        b = db.create_node("task", "B")
         db.complete_node(a, "result A")
         db.complete_node(b, "result B")
         results = db.get_completed_results([a, b])
         assert results == {a: "result A", b: "result B"}
 
     def test_incomplete_excluded(self, db):
-        a = db.create_node("spawn", "A")
-        b = db.create_node("spawn", "B")
+        a = db.create_node("task", "A")
+        b = db.create_node("task", "B")
         db.complete_node(a, "result A")
         results = db.get_completed_results([a, b])
         assert results == {a: "result A"}

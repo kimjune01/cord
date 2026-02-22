@@ -28,12 +28,12 @@ def build_agent_prompt(db: CordDB, node_id: str) -> str:
             parts.append(f"  {indent}{nid} \"{goal}\"{marker}")
         parts.append("")
 
-    # 2. Injected results from dependencies
-    blocked_by = node["blocked_by"]
-    if blocked_by:
-        results = db.get_completed_results(blocked_by)
+    # 2. Results from needed nodes
+    needs = node["needs"]
+    if needs:
+        results = db.get_completed_results(needs)
         if results:
-            parts.append("Results from completed dependencies:")
+            parts.append("Results from needed nodes:")
             parts.append("")
             for dep_id, result in results.items():
                 dep = db.get_node(dep_id)
@@ -42,35 +42,31 @@ def build_agent_prompt(db: CordDB, node_id: str) -> str:
                 parts.append(result)
                 parts.append("")
 
-    # 3. Fork context injection
-    if node["node_type"] == "fork":
-        _inject_fork_context(db, node, parts)
-
-    # 4. Node's own prompt
+    # 3. Node's own prompt
     if node.get("prompt"):
         parts.append("Your task:")
         parts.append(node["prompt"])
         parts.append("")
 
-    # 5. MCP tool instructions
+    # 4. MCP tool instructions
     parts.append("You have MCP tools available for coordination:")
-    parts.append("- spawn(goal, prompt, returns, blocked_by): Create a child task (scoped context — child only sees its prompt)")
-    parts.append("- fork(goal, prompt, returns, blocked_by): Create a child that inherits completed sibling results")
+    parts.append("- create(goal, prompt, returns, needs): Create a child task. Use needs to list node IDs it depends on.")
     parts.append("- complete(result): Mark your task done with a result")
     parts.append("- read_tree(): View the full coordination tree")
     parts.append("")
     parts.append("WORKFLOW:")
     parts.append("1. Assess whether your task has independent parts")
-    parts.append("2. If yes: spawn/fork children, then call complete()")
+    parts.append("2. If yes: create children, then call complete()")
     parts.append("3. If no: do the work, then call complete()")
     parts.append("")
-    parts.append("spawn = child with clean context. fork = child that sees completed sibling results.")
-    parts.append("blocked_by = child waits for listed nodes to complete before starting.")
+    parts.append("needs = child waits for listed nodes to complete. Their full results are injected into the child's prompt.")
+    parts.append("If a child would need results from many nodes, create an intermediate task to synthesize them first.")
+    parts.append("Prefer deeper trees over wide fan-ins — each level of depth is a natural compression boundary.")
     parts.append("")
     parts.append("IMPORTANT: When you are done, you MUST call the `complete` tool with your result.")
     parts.append("")
 
-    # 6. Output format instructions
+    # 5. Output format instructions
     returns = node.get("returns") or "text"
     parts.append(_output_instructions(returns))
 
@@ -111,29 +107,6 @@ def build_synthesis_prompt(db: CordDB, node_id: str) -> str:
     parts.append(_output_instructions(returns))
 
     return "\n".join(parts)
-
-
-def _inject_fork_context(db: CordDB, node: dict, parts: list[str]) -> None:
-    """For fork nodes, inject all available context from siblings."""
-    parent_id = node.get("parent_id")
-    if not parent_id:
-        return
-
-    siblings = db.get_children(parent_id)
-    sibling_results = []
-    for sib in siblings:
-        if sib["node_id"] == node["node_id"]:
-            continue
-        if sib["status"] == "complete" and sib.get("result"):
-            sibling_results.append(sib)
-
-    if sibling_results:
-        parts.append("Inherited context (results from sibling tasks):")
-        parts.append("")
-        for sib in sibling_results:
-            parts.append(f"--- {sib['node_id']} \"{sib['goal']}\" ---")
-            parts.append(sib["result"])
-            parts.append("")
 
 
 def _output_instructions(returns: str) -> str:

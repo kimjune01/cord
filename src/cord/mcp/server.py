@@ -44,8 +44,8 @@ def _node_to_json(node: dict) -> dict:
         d["returns"] = node["returns"]
     if node.get("result"):
         d["result"] = node["result"]
-    if node.get("blocked_by"):
-        d["blocked_by"] = node["blocked_by"]
+    if node.get("needs"):
+        d["needs"] = node["needs"]
     if node.get("children"):
         d["children"] = [_node_to_json(c) for c in node["children"]]
     return d
@@ -75,35 +75,20 @@ def read_node(node_id: str) -> str:
 
 
 @mcp.tool()
-def spawn(goal: str, prompt: str = "", returns: str = "text",
-          blocked_by: list[str] | None = None) -> str:
-    """Create a spawned child node under your node.
-    Use blocked_by to declare dependencies on other node IDs (e.g. ['#2', '#3'])."""
+def create(goal: str, prompt: str = "", returns: str = "text",
+           needs: list[str] | None = None) -> str:
+    """Create a child task under your node.
+    Use needs to declare dependencies on other node IDs (e.g. ['#2', '#3']).
+    The task won't start until all needed nodes complete. Their full results
+    will be injected into the child's prompt."""
     db = _get_db()
     new_id = db.create_node(
-        node_type="spawn",
+        node_type="task",
         goal=goal,
         parent_id=agent_id,
         prompt=prompt,
         returns=returns,
-        blocked_by=blocked_by,
-    )
-    return json.dumps({"created": new_id, "goal": goal})
-
-
-@mcp.tool()
-def fork(goal: str, prompt: str = "", returns: str = "text",
-         blocked_by: list[str] | None = None) -> str:
-    """Create a forked child node (inherits parent context) under your node.
-    Use blocked_by to declare dependencies on other node IDs."""
-    db = _get_db()
-    new_id = db.create_node(
-        node_type="fork",
-        goal=goal,
-        parent_id=agent_id,
-        prompt=prompt,
-        returns=returns,
-        blocked_by=blocked_by,
+        needs=needs,
     )
     return json.dumps({"created": new_id, "goal": goal})
 

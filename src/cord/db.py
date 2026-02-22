@@ -11,7 +11,7 @@ from pathlib import Path
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS nodes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    node_type TEXT NOT NULL CHECK(node_type IN ('goal', 'spawn', 'fork', 'serial', 'ask')),
+    node_type TEXT NOT NULL CHECK(node_type IN ('goal', 'task', 'serial', 'ask')),
     goal TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending'
         CHECK(status IN ('pending', 'active', 'paused', 'complete', 'failed', 'cancelled')),
@@ -70,7 +70,7 @@ class CordDB:
         parent_id: str | None = None,
         prompt: str | None = None,
         returns: str = "text",
-        blocked_by: list[str] | None = None,
+        needs: list[str] | None = None,
         status: str = "pending",
     ) -> str:
         now = time.time()
@@ -83,8 +83,8 @@ class CordDB:
         )
         row_id = cursor.lastrowid
 
-        if blocked_by:
-            for dep in blocked_by:
+        if needs:
+            for dep in needs:
                 self._conn.execute(
                     "INSERT INTO dependencies (node_id, depends_on) VALUES (?, ?)",
                     (row_id, _row_id(dep)),
@@ -141,7 +141,7 @@ class CordDB:
         ).fetchall()
         return [self._row_to_dict(r) for r in rows]
 
-    def get_blocked_by(self, node_id: str) -> list[str]:
+    def get_needs(self, node_id: str) -> list[str]:
         rows = self._conn.execute(
             "SELECT depends_on FROM dependencies WHERE node_id = ?",
             (_row_id(node_id),),
@@ -217,5 +217,5 @@ class CordDB:
         d = dict(row)
         d["node_id"] = _node_id(d["id"])
         d["parent_id"] = _node_id(d["parent_id"]) if d["parent_id"] else None
-        d["blocked_by"] = self.get_blocked_by(d["node_id"])
+        d["needs"] = self.get_needs(d["node_id"])
         return d
