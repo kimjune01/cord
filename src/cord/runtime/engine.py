@@ -8,7 +8,8 @@ from pathlib import Path
 
 from cord.db import CordDB
 from cord.prompts import build_agent_prompt, build_synthesis_prompt
-from cord.runtime.dispatcher import launch_agent
+from cord.runtime.harness.base import AgentLaunchRequest, RuntimeAdapter
+from cord.runtime.harness.registry import create_adapter, default_runtime
 from cord.runtime.process_manager import ProcessManager
 
 
@@ -24,8 +25,10 @@ class Engine:
         db_path: Path | None = None,
         poll_interval: float = 2.0,
         max_budget_usd: float = 2.0,
-        model: str = "sonnet",
+        model: str | None = None,
         project_dir: Path | None = None,
+        runtime: str | None = None,
+        runtime_adapter: RuntimeAdapter | None = None,
     ):
         self.goal = goal
         self.project_dir = (project_dir or Path.cwd()).resolve()
@@ -37,6 +40,9 @@ class Engine:
         self.poll_interval = poll_interval
         self.max_budget_usd = max_budget_usd
         self.model = model
+        self.runtime = runtime or default_runtime()
+        self.runtime_adapter = runtime_adapter or create_adapter(self.runtime)
+        self.root_id: str | None = None
         self.process_manager = ProcessManager()
         self.db = CordDB(self.db_path)
         self._last_tree_hash = ""
@@ -52,6 +58,7 @@ class Engine:
             goal=self.goal,
             status="active",
         )
+        self.root_id = root_id
 
         # Launch root agent
         self._launch_node(root_id)
@@ -69,15 +76,10 @@ class Engine:
 
     def _main_loop(self) -> None:
         while True:
-            if self.db.is_tree_complete():
-                self._print_tree()
-                self._log("Done.")
-                break
-
             # Poll completions
             completions = self.process_manager.poll_completions()
-            for node_id, return_code, stdout in completions:
-                self._handle_completion(node_id, return_code, stdout)
+            for node_id, return_code, stdout, stderr in completions:
+                self._handle_completion(node_id, return_code, stdout, stderr)
 
             # Launch ready nodes
             ready = self.db.find_ready_nodes()
@@ -94,6 +96,13 @@ class Engine:
 
             self._print_tree()
 
+            # Only finish when both the coordination state and process state are done.
+            if self.db.is_tree_complete() and self.process_manager.active_count == 0:
+                self._print_tree()
+                self._print_final_result()
+                self._log("Done.")
+                break
+
             # Stuck check
             if self.process_manager.active_count == 0 and not ready:
                 pending = [n for n in self.db.all_nodes() if n["status"] == "pending"]
@@ -107,17 +116,18 @@ class Engine:
         prompt = build_agent_prompt(self.db, node_id)
         self.db.update_status(node_id, "active")
 
-        process = launch_agent(
-            self.db_path,
-            node_id,
-            prompt,
+        request = AgentLaunchRequest(
+            db_path=self.db_path,
+            node_id=node_id,
+            prompt=prompt,
             max_budget_usd=self.max_budget_usd,
             model=self.model,
             project_dir=self.project_dir,
         )
+        process = self.runtime_adapter.launch(request)
         self.process_manager.register(node_id, process)
 
-    def _handle_completion(self, node_id: str, return_code: int, stdout: str) -> None:
+    def _handle_completion(self, node_id: str, return_code: int, stdout: str, stderr: str) -> None:
         node = self.db.get_node(node_id)
         if not node:
             return
@@ -133,6 +143,11 @@ class Engine:
         else:
             if node["status"] != "complete":
                 self.db.update_status(node_id, "failed")
+                error_text = stderr.strip() or stdout.strip() or "(no stderr output)"
+                self._log(
+                    f"Node {node_id} failed (exit {return_code}): "
+                    f"{error_text[:500]}"
+                )
 
     def _check_synthesis(self, completed_node_id: str) -> None:
         """Check if a parent needs synthesis after a child completes."""
@@ -166,14 +181,15 @@ class Engine:
         # Relaunch parent for synthesis
         self.db.update_status(parent_id, "active")
         prompt = build_synthesis_prompt(self.db, parent_id)
-        process = launch_agent(
-            self.db_path,
-            parent_id,
-            prompt,
+        request = AgentLaunchRequest(
+            db_path=self.db_path,
+            node_id=parent_id,
+            prompt=prompt,
             max_budget_usd=self.max_budget_usd,
             model=self.model,
             project_dir=self.project_dir,
         )
+        process = self.runtime_adapter.launch(request)
         self.process_manager.register(parent_id, process)
 
     def _handle_ask(self, node: dict) -> None:
@@ -218,7 +234,8 @@ class Engine:
             return
 
         # Simple change detection
-        h = hash(str(tree))
+        active = tuple(sorted(self.process_manager.active_node_ids))
+        h = hash((str(tree), active))
         if h == self._last_tree_hash:
             return
         self._last_tree_hash = h
@@ -226,9 +243,8 @@ class Engine:
         lines = [f"\033[2J\033[H\033[1mcord run\033[0m", ""]
         self._render_node(tree, 0, lines)
         lines.append("")
-        active = self.process_manager.active_node_ids
         if active:
-            lines.append(f"\033[90m  running: {', '.join(sorted(active))}\033[0m")
+            lines.append(f"\033[90m  running: {', '.join(active)}\033[0m")
         print("\n".join(lines), file=sys.stderr)
 
     def _render_node(self, node: dict, depth: int, lines: list[str]) -> None:
@@ -259,6 +275,20 @@ class Engine:
 
     def _log(self, message: str) -> None:
         print(message, file=sys.stderr)
+
+    def _print_final_result(self) -> None:
+        """Print full root result after completion for easier consumption."""
+        if not self.root_id:
+            return
+        root = self.db.get_node(self.root_id)
+        if not root:
+            return
+        result = (root.get("result") or "").strip()
+        if not result:
+            return
+        self._log("")
+        self._log("Final result:")
+        self._log(result)
 
 
 def _status_style(status: str) -> tuple[str, str]:

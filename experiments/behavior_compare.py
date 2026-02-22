@@ -29,7 +29,7 @@ from typing import Callable
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from cord.db import CordDB
-from cord.runtime.dispatcher import generate_mcp_config, MCP_TOOLS
+from cord.runtime.harness.base import generate_mcp_config, MCP_TOOLS
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 RESULTS_FILE = Path(__file__).resolve().parent / "RESULTS.md"

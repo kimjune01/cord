@@ -1,6 +1,6 @@
 # Cord
 
-A coordination protocol for trees of Claude Code agents.
+A coordination protocol for trees of coding agents.
 
 One goal in, multiple agents out. They decompose, parallelize, wait on dependencies, and synthesize — all through a shared SQLite database.
 
@@ -31,8 +31,11 @@ No workflow was hardcoded. The agent built this tree at runtime.
 ## Prerequisites
 
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) installed and authenticated (`claude` command available)
-- An Anthropic API key with sufficient credits
+- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) installed and authenticated (`claude` command available) for `--runtime claude`
+- [Codex CLI](https://developers.openai.com/codex/app-server/) installed and authenticated (`codex` command available) for `--runtime codex-app-server`
+- [Amp CLI](https://ampcode.com/) installed and authenticated (`amp` command available) for `--runtime amp`
+- An Anthropic API key with sufficient credits for `--runtime claude`
+- OpenAI auth (ChatGPT login or API key) configured in Codex for `--runtime codex-app-server`
 
 ## Install
 
@@ -40,7 +43,11 @@ No workflow was hardcoded. The agent built this tree at runtime.
 git clone https://github.com/kimjune01/cord.git
 cd cord
 uv sync
+# optional runtime extras
+uv sync --extra amp
 ```
+
+If published as a package, the same extra is available as `cord[amp]`.
 
 ## Usage
 
@@ -53,6 +60,16 @@ cord run plan.md
 
 # Control budget and model
 cord run "goal" --budget 5.0 --model opus
+
+# Select runtime explicitly
+cord run "goal" --runtime codex-app-server --model gpt-5.2-codex
+cord run "goal" --runtime claude --model opus
+cord run "goal" --runtime amp
+
+# Runtime shorthand flags
+cord --codex run "goal"
+cord --claude run "goal"
+cord --amp run "goal"
 ```
 
 **Options:**
@@ -60,7 +77,10 @@ cord run "goal" --budget 5.0 --model opus
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--budget` | 2.0 | Max USD per agent subprocess |
-| `--model` | sonnet | Claude model (sonnet, opus, haiku) |
+| `--model` | sonnet (`claude`), gpt-5.2-codex (`codex-app-server`), none (`amp`) | Model override for the selected runtime |
+| `--runtime` | codex-app-server | Agent runtime (`codex-app-server`, `claude`, `amp`) |
+
+`amp` runtime currently ignores `--model` and `--budget` overrides (warning is printed).
 
 ## How it works
 
@@ -127,7 +147,8 @@ src/cord/
     prompts.py              # Prompt assembly for agents
     runtime/
         engine.py           # Main loop, TUI
-        dispatcher.py       # Launch claude CLI processes
+        harness/            # Runtime adapter registry + implementations
+        codex_app_server_worker.py  # JSON-RPC client for Codex App Server
         process_manager.py  # Track subprocesses
     mcp/
         server.py           # MCP tools (one server per agent)
@@ -157,11 +178,11 @@ Each agent subprocess has its own Claude API budget (set via `--budget`). A simp
 - No web UI — terminal TUI only.
 - No mid-execution message injection (pause/modify/resume requires relaunch).
 - Each agent gets its own MCP server process (~200ms startup overhead).
-- Claude Code CLI must be installed and authenticated.
+- Runtime-specific CLI must be installed and authenticated (`codex`, `claude`, or `amp`).
 
 ## Alternative implementations
 
-This repo is one implementation of the Cord protocol. The protocol itself — four primitives, dependency resolution, authority scoping, two-phase lifecycle — is independent of the backing store, transport, and agent runtime. You could implement Cord with Redis pub/sub, Postgres for multi-machine coordination, HTTP/SSE instead of stdio MCP, or non-Claude agents. See [RFC.md](RFC.md) for the full protocol specification.
+This repo is one implementation of the Cord protocol. The protocol itself — three core primitives (`goal`, `task`, `ask`) plus optional `serial` sequencing, dependency resolution, authority scoping, two-phase lifecycle — is independent of the backing store, transport, and agent runtime. You could implement Cord with Redis pub/sub, Postgres for multi-machine coordination, HTTP/SSE instead of stdio MCP, or non-Claude agents. See [RFC.md](RFC.md) for the full protocol specification.
 
 ## License
 
